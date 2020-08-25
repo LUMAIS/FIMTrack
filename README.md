@@ -27,6 +27,10 @@ Details can be found in
 
 For more informations contact fim[AT]uni-muenster[DOT]de
 
+## Known Forks
+
+* An extension of the latest original FIMTrack aimed for fish tracking: https://github.com/wildner/FIMTrack_extension
+* A form of a bit outdated FIMTrack: https://github.com/kostasl/FIMTrack
 
 ## Building FIMTrack
 
