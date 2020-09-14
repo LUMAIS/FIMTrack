@@ -80,7 +80,7 @@ void Backgroundsubtractor::subtractViaThresh(cv::Mat const& src, int const gThre
 
 void Backgroundsubtractor::readImage(std::string const& path, cv::Mat& dst)
 {
-    dst = cv::imread(path, CV_LOAD_IMAGE_GRAYSCALE);
+    dst = cv::imread(path, cv::IMREAD_GRAYSCALE);
 }
 
 void Backgroundsubtractor::updateBackgroundImage(cv::Mat const& grayImage)

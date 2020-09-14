@@ -44,7 +44,8 @@ macx {
 
     QMAKE_CXXFLAGS += -stdlib=libc++ -Wall
 
-    INCLUDEPATH += /usr/local/include
+    # NOTE: /usr/local/include might need to be excluded in case of errors with `#include_next <stdlib.h>`
+    INCLUDEPATH += /usr/local/include /usr/include/opencv4
 
     LIBS += -L/usr/local/lib \
             -lopencv_core \
@@ -58,7 +59,7 @@ unix {
 
     QMAKE_CXXFLAGS += -std=c++11 -Wall -pedantic -Wno-unknown-pragmas
 
-    INCLUDEPATH += /usr/include
+    INCLUDEPATH += /usr/include/opencv4
 
     LIBS += -lopencv_core \
             -lopencv_highgui \

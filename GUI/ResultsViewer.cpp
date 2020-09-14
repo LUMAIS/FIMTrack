@@ -101,7 +101,7 @@ void ResultsViewer::showImage(int const index)
         }
         
         cv::Mat cImg = cv::Mat::zeros(img.size(), CV_8UC3);
-        cv::cvtColor(img,cImg,CV_GRAY2BGR);
+        cv::cvtColor(img,cImg,cv::COLOR_GRAY2BGR);
         
         QImage qimg = QtOpencvCore::img2qimg(cImg);
         
@@ -778,7 +778,7 @@ void ResultsViewer::cropImage(uint larvaID)
                 box.height = img.rows - box.y -1;
             
             cv::Mat cImg = cv::Mat::zeros(img.size(), CV_8UC3);
-            cv::cvtColor(img,cImg,CV_GRAY2BGR);
+            cv::cvtColor(img,cImg,cv::COLOR_GRAY2BGR);
             
             cImg = cImg(box);
             

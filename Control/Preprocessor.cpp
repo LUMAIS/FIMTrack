@@ -49,7 +49,7 @@ void Preprocessor::graythresh(Mat const & src,
 
 void Preprocessor::calcContours(Mat const & src, contours_t & contours)
 {
-    findContours(src, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+    findContours(src, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 }
 
 void Preprocessor::sizethreshold(const contours_t &contoursSrc, const int minSizeThresh, const int maxSizeThresh, contours_t &correctContoursDst, contours_t &biggerContoursDst)

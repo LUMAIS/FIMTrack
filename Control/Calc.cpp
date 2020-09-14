@@ -405,12 +405,12 @@ namespace Calc
         // draw filled (i.e. inner) contours into respective images
         contours_t contourContainer;
         contourContainer.push_back(firstContour);
-        cv::drawContours(firstImage, contourContainer, -1, cv::Scalar(1), CV_FILLED, 8,
+        cv::drawContours(firstImage, contourContainer, -1, cv::Scalar(1), cv::FILLED, 8,
                          cv::noArray(), 2147483647, cv::Point(-offset.x, -offset.y));
 
         contourContainer.clear();
         contourContainer.push_back(secondContour);
-        cv::drawContours(secondImage, contourContainer, -1, cv::Scalar(1), CV_FILLED, 8,
+        cv::drawContours(secondImage, contourContainer, -1, cv::Scalar(1), cv::FILLED, 8,
                          cv::noArray(), 2147483647, cv::Point(-offset.x, -offset.y));
 
         // logical AND gives the overlap as a result

@@ -125,11 +125,11 @@ void RawLarva::calcIsCoiledIndicator(const double peri2spineLengthThresh,
     cv::Mat contourMask = cv::Mat::zeros(rect.size(), CV_8UC1);
     std::vector<std::vector<cv::Point> > contourContainer;
     contourContainer.push_back(contour);
-    cv::drawContours(contourMask, contourContainer, -1, cv::Scalar(1), CV_FILLED, 8,
+    cv::drawContours(contourMask, contourContainer, -1, cv::Scalar(1), cv::FILLED, 8,
                      cv::noArray(), 2147483647, cv::Point(-offset.x,-offset.y));
     // calculate distance map
     cv::Mat distMap = cv::Mat::zeros(rect.size(), CV_32FC1);
-    cv::distanceTransform(contourMask, distMap, CV_DIST_L2, CV_DIST_MASK_PRECISE);
+    cv::distanceTransform(contourMask, distMap, cv::DIST_L2, cv::DIST_MASK_PRECISE);
 
     // now, calc maximum radius and midCirclePeri2PeriRatio
     //int midPointIndex = (int) ((discreteSpine.size()-1) /2);

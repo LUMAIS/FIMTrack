@@ -650,9 +650,9 @@ void SpineIPAN::calcDistanceMaps(uint gridSize)
     contourMask = cv::Mat::zeros(rect.size() , CV_8UC1);
     std::vector<std::vector<cv::Point> > contourContainer;
     contourContainer.push_back(*contour);
-    cv::drawContours(contourMask, contourContainer, -1, cv::Scalar(1), CV_FILLED, 8,
+    cv::drawContours(contourMask, contourContainer, -1, cv::Scalar(1), cv::FILLED, 8,
                      cv::noArray(), 2147483647, cv::Point(-offset.x,-offset.y));
-    // CV_FILLED also draws the contour border. not desired here.
+    // cv::FILLED also draws the contour border. not desired here.
     cv::drawContours(contourMask, contourContainer, -1, cv::Scalar(0), 1, 8,
                      cv::noArray(), 2147483647, cv::Point(-offset.x,-offset.y));
 
@@ -681,8 +681,8 @@ void SpineIPAN::calcDistanceMaps(uint gridSize)
     }
 
     // calculate respective distance maps
-    cv::distanceTransform(imgFirstHalf, distMapFirst, CV_DIST_L2, 3);
-    cv::distanceTransform(imgSecondHalf, distMapSecond, CV_DIST_L2, 3);
+    cv::distanceTransform(imgFirstHalf, distMapFirst, cv::DIST_L2, 3);
+    cv::distanceTransform(imgSecondHalf, distMapSecond, cv::DIST_L2, 3);
 
     // calculate the absolute differences of all distance values in the two images
     cv::absdiff(distMapSecond, distMapFirst, absDiffDistMap);

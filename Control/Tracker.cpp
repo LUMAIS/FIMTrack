@@ -160,7 +160,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
     cv::Mat mask;
     if (ROIContainer != nullptr && imgPaths.size() > 0)
     {
-        cv::Mat firstImg = imread(imgPaths.at(0), CV_LOAD_IMAGE_GRAYSCALE);
+        cv::Mat firstImg = imread(imgPaths.at(0), IMREAD_GRAYSCALE);
         mask = cv::Mat::zeros(firstImg.size(), firstImg.type());
 
         for (int i = 0; i < ROIContainer->getRegionOfInterests().size(); ++i)
@@ -172,7 +172,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
                     break;
                 case RegionOfInterest::ELLIPSE:
                     cv::Mat ellipseMask = cv::Mat::zeros(mask.size(), mask.type());
-                    cv::ellipse(ellipseMask, QtOpencvCore::qRect2RotatedRect(ROIContainer->getRegionOfInterests().at(i).getBoundingBox()), cv::Scalar(255, 255, 255), CV_FILLED);
+                    cv::ellipse(ellipseMask, QtOpencvCore::qRect2RotatedRect(ROIContainer->getRegionOfInterests().at(i).getBoundingBox()), cv::Scalar(255, 255, 255), cv::FILLED);
                     mask |= ellipseMask;
                     break;
             }
@@ -194,7 +194,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
 
         emit logMessageSignal(QString("Process Image: ").append(QtOpencvCore::str2qstr(path)), INFO);
 
-        cv::Mat img = imread(path, CV_LOAD_IMAGE_GRAYSCALE);
+        cv::Mat img = imread(path, IMREAD_GRAYSCALE);
         if (ROIContainer != nullptr)
         {
             img &= mask;
@@ -204,7 +204,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
 
         if (_showTrackingProgress)
         {
-            cvtColor(img, previewImg, CV_GRAY2BGR);
+            cvtColor(img, previewImg, cv::COLOR_GRAY2BGR);
         }
 
         extractRawLarvae(img, bs, &previewImg, false);
@@ -291,7 +291,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
 
         ++timePoint;
 
-        int progressbarValue = cvRound((timePoint * 100) / imgPaths.size());
+        int progressbarValue = cvRound((timePoint * 100.f) / imgPaths.size());
         emit progressBarChangeSignal(progressbarValue);
     }
 
