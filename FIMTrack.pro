@@ -50,7 +50,9 @@ macx {
     LIBS += -L/usr/local/lib \
             -lopencv_core \
             -lopencv_highgui \
-            -lopencv_imgproc
+            -lopencv_imgproc \
+            -lopencv_imgcodecs \
+            -lopencv_calib3d
 
     QMAKE_CXXFLAGS_WARN_ON = -Wno-unused-variable -Wno-reorder
 }
@@ -63,27 +65,33 @@ unix {
 
     LIBS += -lopencv_core \
             -lopencv_highgui \
-            -lopencv_imgproc
+            -lopencv_imgproc \
+            -lopencv_imgcodecs \
+            -lopencv_calib3d
 
     QMAKE_CXXFLAGS_WARN_ON = -Wno-unused-variable -Wno-reorder
 }
 
 win32{
-
-    INCLUDEPATH += C:\\OpenCV\\2.4.11\\build\\include
+    # TODO: verify build on Windows
+    INCLUDEPATH += C:\\OpenCV\\4.3.0\\build\\include
 
     QMAKE_LFLAGS += /INCREMENTAL:NO
 
     CONFIG(debug,debug|release){
-        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_core2411d.lib
-        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_highgui2411d.lib
-        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_imgproc2411d.lib
+        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_core4311d.lib
+        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_highgui4311d.lib
+        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_imgproc4311d.lib
+        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_imgcodecs4311d.lib
+        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_calib3d4311d.lib
 
     }
 
     CONFIG(release,debug|release){
-        LIBS += C:\\OpenCV\\2.4.11\\build\\x86\\vc10\\lib\\opencv_core2411.lib
-        LIBS += C:\\OpenCV\\2.4.11\\build\\x86\\vc10\\lib\\opencv_highgui2411.lib
-        LIBS += C:\\OpenCV\\2.4.11\\build\\x86\\vc10\\lib\\opencv_imgproc2411.lib
+        LIBS += C:\\OpenCV\\2.4.11\\build\\x86\\vc10\\lib\\opencv_core4311.lib
+        LIBS += C:\\OpenCV\\2.4.11\\build\\x86\\vc10\\lib\\opencv_highgui4311.lib
+        LIBS += C:\\OpenCV\\2.4.11\\build\\x86\\vc10\\lib\\opencv_imgproc4311.lib
+        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_imgcodecs4311d.lib
+        LIBS += C:\\OpenCV\\2.4.11\build\\x86\\vc10\\lib\\opencv_calib3d4311d.lib
     }
 }
