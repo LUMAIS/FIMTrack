@@ -63,6 +63,11 @@ We suggest to use Xcode and [Homebrew](http://brew.sh/) for building FIMTrack on
     * `sudo brew tap homebrew/versions`
     * `sudo brew install qt5`
     * `sudo brew link --force qt5`
+    
+Ensure that OpenCV v.4 is installed and its headers are located in `/usr/local/include/opencv4`:
+```sh
+$ sudo ln -s `find /usr/local -name "opencv4" -type d | grep "/include/"` /usr/local/include/opencv4
+```
 
 #### Building
         git clone https://github.com/i-git/FIMTrack.git FIMTrack
