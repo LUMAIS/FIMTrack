@@ -104,6 +104,8 @@ private slots:
     void resetListViewe();
     void showMessage(QString msg);
 
+    void on_btnLoadDlcTrack_clicked();
+
 private:
     Ui::MainGUI*                ui;
     PreferencesDialogWindow*    _preferencesDialogWindow;
@@ -122,6 +124,8 @@ private:
     cv::Mat                     _trackingPreviewImg;
     
     QString                     _configurationFile;
+
+    QString                     _dlcTrackingFile;
     
     void showImage(QString path);
     void readParameters();

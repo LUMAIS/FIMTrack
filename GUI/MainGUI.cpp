@@ -428,6 +428,7 @@ void MainGUI::trackingDoneSlot()
     try
     {
         this->_fileNames.clear();
+        this->_dlcTrackingFile.clear();
         this->ui->btnTrack->setText(QString("Track"));
         this->ui->btnTrack->setEnabled(true);
         this->ui->btnPreview->setEnabled(true);
@@ -471,7 +472,10 @@ void MainGUI::updateTreeViewer()
         QFileInfo fInfo(_fileNames.at(0));
         
         QTreeWidgetItem *item = new QTreeWidgetItem(this->ui->treeView);
-        item->setText(0, QString("Job ").append(QString::number(this->_jobs.size())));
+        QString  jobCapt = QString("Job ").append(QString::number(this->_jobs.size()));
+        if(!_dlcTrackingFile.isEmpty())
+            jobCapt += QString(": ").append(_dlcTrackingFile.section('/', -1));  // Fetch file name without directories
+        item->setText(0, jobCapt);
         item->setText(1, fInfo.absolutePath());
         this->ui->treeView->addTopLevelItem(item);
         
@@ -497,6 +501,7 @@ void MainGUI::resetListViewe()
 {
     this->_scene->clearScene();
     this->_fileNames.clear();
+    this->_dlcTrackingFile.clear();
     this->ui->treeView->clear();
     this->_jobs.clear();
     
@@ -670,4 +675,11 @@ void MainGUI::on_treeView_itemSelectionChanged()
             this->showImage(path);
         }
     }
+}
+
+void MainGUI::on_btnLoadDlcTrack_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("DLC JSON (*.json)"));
+    if(!fileName.isEmpty())
+        this->_dlcTrackingFile = fileName;
 }
