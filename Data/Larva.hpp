@@ -101,6 +101,10 @@ public:
          */
         double area;
         /**
+         * @brief accumulated brigness of the area of the larval contour
+         */
+        unsigned brightness;
+        /**
          * @brief spineRadii radii of all spine points (specifying the thickness of the larva)
          */
         std::vector<double> spineRadii;
@@ -277,6 +281,7 @@ public:
     bool getHeadAt(unsigned int const timePoint, cv::Point & retHead) const;
     bool getTailAt(unsigned int const timePoint, cv::Point & retTail) const;
     bool getAreaAt(unsigned int const timePoint, double & retArea) const;
+    bool getBrightnessAt(const unsigned int timePoint, unsigned &retBrightness) const;
     bool getVelosityAt(unsigned int const timePoint, double & retVelosity) const;
     bool getAccelerationAt(unsigned int const timePoint, double & retAcceleration) const;
     bool getSpineRadiiAt(unsigned int const timePoint, std::vector<double> & retSpineRadii) const;
@@ -300,6 +305,7 @@ public:
     // string getter methods
     std::string getStrMomentum(unsigned int const timePoint, unsigned int const dimension) const;
     std::string getStrArea(unsigned int const timePoint) const;
+    std::string getStrBrightness(const unsigned int timePoint) const;
     std::string getStrVelosity(unsigned int const timePoint) const;
     std::string getStrAcceleration(unsigned int const timePoint) const;
     std::string getStrSpine(unsigned int const timePoint, unsigned int const index, unsigned int const dimension) const;

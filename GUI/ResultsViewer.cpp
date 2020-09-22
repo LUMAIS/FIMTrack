@@ -172,6 +172,7 @@ void ResultsViewer::showTable(const int index)
             
             cv::Point mom;
             double area;
+            unsigned brightness;
             double bodyBending;
             double spineLength;
             double perimeter;
@@ -193,7 +194,6 @@ void ResultsViewer::showTable(const int index)
             double distToLandmark;
             double bearingAngle;
             
-            
             for (unsigned int cols = 0; cols < nLarvae; ++cols)
             {
                 if(mLarvaeContainer.getLarva(cols, l))
@@ -201,6 +201,7 @@ void ResultsViewer::showTable(const int index)
                     if (l.getMomentumAt(index,mom))
                     {
                         l.getAreaAt(index,area);
+                        l.getBrightnessAt(index,brightness);
                         l.getMainBodyBendingAngleAt(index,bodyBending);
                         l.getSpineLengthAt(index,spineLength);
                         l.getPerimeterAt(index,perimeter);
@@ -208,57 +209,65 @@ void ResultsViewer::showTable(const int index)
                         l.getAccDistAt(index,accDist);
                         l.getDistToOriginAt(index,distToOrigin);                        
                         
-                        tableModel->setItem(0,cols, new QStandardItem(QString::number(area)));
-                        tableModel->setItem(1,cols, new QStandardItem(QString::number(mom.x)));
-                        tableModel->setItem(2,cols, new QStandardItem(QString::number(mom.y)));
-                        tableModel->setItem(3,cols, new QStandardItem(QString::number(bodyBending)));
+                        unsigned iItem = 0;
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(area)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(brightness)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(mom.x)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(mom.y)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(bodyBending)));
                         if(l.getIsCoiledIndicatorAt(index,isCoiled))
                         {
                             isCoiledInt = isCoiled ? 1 : 0;
-                            tableModel->setItem(4,cols, new QStandardItem(QString::number(isCoiledInt)));
+                            tableModel->setItem(iItem,cols, new QStandardItem(QString::number(isCoiledInt)));
                         }
+                        ++iItem;
 
                         if(l.getIsWellOrientedAt(index,isWellOriented))
                         {
                             isWellOrientedInt = isWellOriented ? 1 : 0;
-                            tableModel->setItem(5,cols, new QStandardItem(QString::number(isWellOrientedInt)));
+                            tableModel->setItem(iItem,cols, new QStandardItem(QString::number(isWellOrientedInt)));
                         }
+                        ++iItem;
                         
                         if(l.getLeftBendingIndicatorAt(index,isLeftBended))
                         {
                             isLeftBendedInt = isLeftBended ? 1 : 0;
-                            tableModel->setItem(6,cols, new QStandardItem(QString::number(isLeftBendedInt)));
+                            tableModel->setItem(iItem,cols, new QStandardItem(QString::number(isLeftBendedInt)));
                         }
+                        ++iItem;
                         
                         if(l.getRightBendingIndicatorAt(index,isRightBended))
                         {
                             isRightBendedInt = isRightBended ? 1 : 0;
-                            tableModel->setItem(7,cols, new QStandardItem(QString::number(isRightBendedInt)));
+                            tableModel->setItem(iItem,cols, new QStandardItem(QString::number(isRightBendedInt)));
                         }
+                        ++iItem;
                         
                         if(l.getGoPhaseIndicatorAt(index,goPhaseIndicator))
                         {
-                            tableModel->setItem(8,cols, new QStandardItem(QString::number(goPhaseIndicator)));
+                            tableModel->setItem(iItem,cols, new QStandardItem(QString::number(goPhaseIndicator)));
                         }
+                        ++iItem;
                         
                         if(l.getMovementDirectionAt(index,movementDirection))
                         {
-                            tableModel->setItem(9,cols, new QStandardItem(QString::number(movementDirection)));
+                            tableModel->setItem(iItem,cols, new QStandardItem(QString::number(movementDirection)));
                         }
+                        ++iItem;
                         
                         l.getVelosityAt(index, velocity);
                         l.getAccelerationAt(index, acceleration);
                         
-                        tableModel->setItem(10,cols, new QStandardItem(QString::number(spineLength)));
-                        tableModel->setItem(11,cols, new QStandardItem(QString::number(perimeter)));
-                        tableModel->setItem(12,cols, new QStandardItem(QString::number(momDist)));
-                        tableModel->setItem(13,cols, new QStandardItem(QString::number(accDist)));
-                        tableModel->setItem(14,cols, new QStandardItem(QString::number(distToOrigin)));
-                        tableModel->setItem(15, cols, new QStandardItem(QString::number(velocity)));
-                        tableModel->setItem(16, cols, new QStandardItem(QString::number(acceleration)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(spineLength)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(perimeter)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(momDist)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(accDist)));
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(distToOrigin)));
+                        tableModel->setItem(iItem++, cols, new QStandardItem(QString::number(velocity)));
+                        tableModel->setItem(iItem++, cols, new QStandardItem(QString::number(acceleration)));
 
                         int landmarkIndex = 0;
-                        for (unsigned int i=17; i<nParameters; i+=2)
+                        for (unsigned int i=iItem; i<nParameters; i+=2)
                         {
                             QString curLandmarkName = landmarkNames[landmarkIndex];
                             if(l.getDistanceToLandmark(index, curLandmarkName.toStdString(), distToLandmark))

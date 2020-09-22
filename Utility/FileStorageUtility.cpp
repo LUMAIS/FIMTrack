@@ -101,6 +101,9 @@ void operator>>(cv::FileNode const & n, Larva & larva)
         cv::FileNodeIterator vIt = valuesNode.begin();
         
         (*vIt)["area"] >> values.area;
+        int brightness;
+        (*vIt)["brightness"] >> brightness;
+        values.brightness = brightness;
         (*vIt)["spine"] >> values.spine;
         nSpinePoints = values.spine.size();
         
@@ -175,6 +178,7 @@ cv::FileStorage& operator<<(cv::FileStorage& fs, Larva const& larva)
         Larva::ValuesType values = it->second;
         fs << "{";
         fs << "area" << values.area;
+        fs << "brightness" << static_cast<int>(values.brightness);
         fs << "spine" << values.spine;
         fs << "momentum" << values.momentum;
         fs << "spineRadii" << values.spineRadii;

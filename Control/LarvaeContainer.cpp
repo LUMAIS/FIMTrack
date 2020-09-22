@@ -674,7 +674,7 @@ void LarvaeContainer::saveResultLarvae(const std::vector<std::string> &imgPaths,
     saveAs = QFileDialog::getSaveFileName(nullptr, QString("Save (modified) Larvae As..."), QDir::currentPath(), tr("CSV-File (*.csv)"));
     if(!saveAs.isNull() && !saveAs.isEmpty())
     {
-        OutputGenerator::writeCSVFile(saveAs.toStdString(), this->mLarvae,imgPaths.size(), landmarkContainer);
+        OutputGenerator::writeCSVFile(saveAs.toStdString(), this->mLarvae, imgPaths.size(), landmarkContainer);
     }
     
     saveAs = QFileDialog::getSaveFileName(nullptr, QString("Save (modified) Larvae As..."), QDir::currentPath(), tr("TIF-File (*.tif)"));
@@ -938,6 +938,18 @@ bool LarvaeContainer::getAreaAt(const uint larvaID, const uint timePoint, double
         return true;
     }
     
+    return false;
+}
+
+bool LarvaeContainer::getBrightnessAt(const uint larvaID, const uint timePoint, unsigned & retBrightness) const
+{
+    size_t i;
+    if(this->getIndexOfLarva(larvaID, i))
+    {
+        this->mLarvae.at(i).getBrightnessAt(timePoint, retBrightness);
+        return true;
+    }
+
     return false;
 }
 
@@ -1424,7 +1436,7 @@ void LarvaeContainer::updateLarvaArea(const int index,
                                       const uint time, 
                                       QPolygonF const& paintPolygon)
 {
-    double area                                         = Calc::calcPolygonArea(paintPolygon);
+    double area                                   = Calc::calcPolygonArea(paintPolygon);
     this->mLarvae[index].parameters[time].area    = area;
 }
 
@@ -1432,7 +1444,7 @@ void LarvaeContainer::updateLarvaPerimeter(const int index,
                                            const uint time, 
                                            QPolygonF const& paintPolygon)
 {
-    double perimeter                                        = Calc::calcPerimeter(paintPolygon);
+    double perimeter                                  = Calc::calcPerimeter(paintPolygon);
     this->mLarvae[index].parameters[time].perimeter   = perimeter;
 }
 
@@ -1647,6 +1659,7 @@ void LarvaeContainer::insertRawLarva(const uint larvaID,
         this->mLarvae[larvaIndex].values.spine          = spine;
         this->mLarvae[larvaIndex].values.momentum       = rawLarva.getMomentum();
         this->mLarvae[larvaIndex].values.area           = rawLarva.getArea();
+        this->mLarvae[larvaIndex].values.brightness     = rawLarva.getBrightness();
         this->mLarvae[larvaIndex].values.spineRadii     = radii;
         
         int midIndex = static_cast<int>((this->mLarvae[larvaIndex].getNSpinePoints() - 1) / 2);

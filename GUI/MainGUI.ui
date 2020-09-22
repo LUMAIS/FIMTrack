@@ -16,7 +16,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>FIMTrack v2.1</string>
+   <string>FIMTrack v3.0</string>
   </property>
   <property name="layoutDirection">
    <enum>Qt::LeftToRight</enum>

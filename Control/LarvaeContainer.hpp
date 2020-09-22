@@ -241,6 +241,7 @@ public:
     bool getIsWellOrientedAt(const uint larvaID, uint const timePoint, bool & retIsWellOriented);
     bool getMomentumAt(const uint larvaID, const uint timePoint, cv::Point & retMomentum) const;
     bool getAreaAt(const uint larvaID, const uint timePoint, double & retArea) const;
+    bool getBrightnessAt(const uint larvaID, const uint timePoint, unsigned & retBrightness) const;
     bool getSpineLengthAt(const uint larvaID, const uint timePoint, double & retSpineLength) const;
     bool getContour(const uint larvaID, FIMTypes::contour_t& contour) const;
     

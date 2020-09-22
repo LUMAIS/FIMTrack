@@ -195,7 +195,20 @@ void OutputGenerator::writeCSVFile(std::string const& path,
         
         ofs << std::endl;
     }
-    
+
+    // write brightness
+    for (size_t t = 0; t < movieLength; ++t)
+    {
+        ofs << "brightness(" << t << ")";
+
+        for (auto const& l : larvae)
+        {
+            ofs << "," << l.getStrBrightness(t).c_str();
+        }
+
+        ofs << std::endl;
+    }
+
     // write perimeter
     for (size_t t = 0; t < movieLength; ++t)
     {

@@ -226,6 +226,21 @@ bool Larva::getAreaAt(const unsigned int timePoint, double &retArea) const
     return exists;
 }
 
+bool Larva::getBrightnessAt(const unsigned int timePoint, unsigned &retBrightness) const
+{
+    map<unsigned int, ValuesType>::const_iterator cIt;
+    bool exists = false;
+
+    cIt = parameters.find(timePoint);
+    if(cIt != parameters.end())
+    {
+        retBrightness = cIt->second.brightness;
+        exists = true;
+    }
+
+    return exists;
+}
+
 bool Larva::getVelosityAt(const unsigned int timePoint, double &retVelosity) const
 {
     map<unsigned int, ValuesType>::const_iterator cIt;
@@ -544,6 +559,17 @@ string Larva::getStrArea(const unsigned int timePoint) const
     if(getAreaAt(timePoint,area))
     {
         ss << area;
+    }
+    return ss.str();
+}
+
+string Larva::getStrBrightness(const unsigned int timePoint) const
+{
+    std::stringstream ss;
+    unsigned brightness;
+    if(getBrightnessAt(timePoint, brightness))
+    {
+        ss << brightness;
     }
     return ss.str();
 }

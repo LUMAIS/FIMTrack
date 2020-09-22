@@ -75,6 +75,7 @@ public:
     cv::Point getMidPoint(void) const {return discreteSpine.at((discreteSpine.size() + 1 ) / 2);}
     cv::Point getMomentum(void) const {return momentum;}
     double getArea(void) const {return area;}
+    double getBrightness() const  { return brightness; }
     std::vector<double> getLarvalRadii(void) const {return larvalRadii;}
     double getSpineLength(void) const {return spineLength;}
     double getContourPerimeter(void) const {return arcLength(contour,true);}
@@ -110,6 +111,10 @@ private:
      * @brief area is the area of the contour
      */
     double area;
+    /**
+     * @brief brightness is the sum of pixels inside the contour
+     */
+    unsigned brightness;
     /**
      * @brief spineLength arclength of the spine
      */

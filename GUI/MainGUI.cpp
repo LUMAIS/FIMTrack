@@ -208,13 +208,15 @@ void MainGUI::showImage(QString path)
         std::stringstream ss;
         ss << currentContourSize;
         
-        // draw the contour size into the image
-        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 3, Scalar(255,255,0), 4);
         
         // draw raw larval informations
         // generate a RawLarva Object
         RawLarva rawLarva(c,grayImg);
-        
+
+        // draw the contour size into the image
+        ss << ",b" << rawLarva.getBrightness();
+        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 3, Scalar(255,255,0), 10);
+
         // get the discrete spine
         vector<Point> discreteSpine = rawLarva.getDiscreteSpine();
         
@@ -472,11 +474,11 @@ void MainGUI::updateTreeViewer()
         QFileInfo fInfo(_fileNames.at(0));
         
         QTreeWidgetItem *item = new QTreeWidgetItem(this->ui->treeView);
-        QString  jobCapt = QString("Job ").append(QString::number(this->_jobs.size()));
+        item->setText(0, QString("Job ").append(QString::number(this->_jobs.size())));
+        QString  jobInf(fInfo.absolutePath());
         if(!_dlcTrackingFile.isEmpty())
-            jobCapt += QString(": ").append(_dlcTrackingFile.section('/', -1));  // Fetch file name without directories
-        item->setText(0, jobCapt);
-        item->setText(1, fInfo.absolutePath());
+            jobInf += QString("; DLC: ").append(_dlcTrackingFile.section('/', -1));  // Fetch file name without directories
+        item->setText(1, jobInf);
         this->ui->treeView->addTopLevelItem(item);
         
         for (int i = 0; i < this->_fileNames.size(); i++) 

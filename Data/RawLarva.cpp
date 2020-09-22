@@ -40,11 +40,21 @@ using std::vector;
 RawLarva::RawLarva(const contour_t& _contour, Mat const & img)
 {
 
-    Q_UNUSED(img);
+    //Q_UNUSED(img);
     contour=_contour;
 
     // set the contour area value
     area = contourArea(contour);
+
+    // Evaluate brightness
+    Rect  brect = boundingRect(contour);
+    const int  xEnd = brect.x + brect.width;
+    const int  yEnd = brect.y + brect.height;
+    brightness = 0;
+    for(unsigned x = brect.x; x < xEnd; ++x)
+        for(unsigned y = brect.y; y < yEnd; ++y)
+            if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
+                brightness += img.at<uchar>(x, y);
 
     // number of discrete spine points
     int nPoints = 5;
