@@ -201,21 +201,13 @@ void MainGUI::showImage(QString path)
     // draw contour sizes into the image
     for(auto const& c : contours)
     {
-        // get the current contour size
-        int currentContourSize = cv::contourArea(c);
-        
-        // convert int to string
-        std::stringstream ss;
-        ss << currentContourSize;
-        
-        
-        // draw raw larval informations
-        // generate a RawLarva Object
+        // Generate a RawLarva Object and draw raw larval informations
         RawLarva rawLarva(c,grayImg);
 
-        // draw the contour size into the image
-        ss << ",b" << rawLarva.getBrightness();
-        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 3, Scalar(255,255,0), 10);
+        // draw the contour size and brightness into the image
+        std::stringstream ss;
+        ss << "a" << cv::contourArea(c) << ",b" << rawLarva.getBrightness();
+        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 2.5, Scalar(255,255,0), 3);
 
         // get the discrete spine
         vector<Point> discreteSpine = rawLarva.getDiscreteSpine();
