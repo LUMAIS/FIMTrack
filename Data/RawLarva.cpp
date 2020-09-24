@@ -51,8 +51,8 @@ RawLarva::RawLarva(const contour_t& _contour, Mat const & img)
     const int  xEnd = brect.x + brect.width;
     const int  yEnd = brect.y + brect.height;
     brightness = 0;
-    for(unsigned x = brect.x; x < xEnd; ++x)
-        for(unsigned y = brect.y; y < yEnd; ++y)
+    for(unsigned y = brect.y; y < yEnd; ++y)
+        for(unsigned x = brect.x; x < xEnd; ++x)
             if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
                 brightness += img.at<uchar>(x, y);
 
