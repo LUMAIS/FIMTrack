@@ -76,10 +76,20 @@ public:
                              RegionOfInterestContainer const* RIOContainer = nullptr,
                              LandmarkContainer const* landmarkContainer = nullptr);
     
+    //! \brief Annotate images with the tracking results, including the larvae ids
+    //!
+    //! \param trackImgPath  - base path for the generating images annotated with the traking results
+    //! \param imgPaths  - paths of the processing images
+    //! \param larvae  - tracking larvae
     static void drawTrackingResults(std::string const& trackImgPath,
                                     std::vector<std::string> const& imgPaths,
                                     std::vector<Larva> const& larvae);
-    
+
+    //! \brief Annotate images with the tracking results
+    //!
+    //! \param trackImgPath  - base path for the generating images annotated with the traking results
+    //! \param imgPaths  - paths of the processing images
+    //! \param larvae  - tracking larvae
     static void drawTrackingResultsNoNumbers(std::string const& trackImgPath,
                                              std::vector<std::string> const& imgPaths,
                                              std::vector<Larva> const& larvae);

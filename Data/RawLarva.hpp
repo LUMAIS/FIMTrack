@@ -63,7 +63,7 @@ public:
      * at least 25% of the contour size away from the maxCurvaturePoint).
      *
      * @param _contour the contour defining the RawLarva
-     * @param img  the image to calculate the head position based on brightness information
+     * @param img  the original image to calculate the head position based on brightness information
      */
     RawLarva(contour_t const& _contour, cv::Mat const & img);
 
