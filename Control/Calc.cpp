@@ -257,6 +257,28 @@ namespace Calc
         return abs(area);
     }
 
+    unsigned calcBrightness(QPolygonF const& polygon,
+                            Mat const & img)
+    {
+        contour_t contour;
+        contour.reserve(polygon.size());
+        // set the contour area value
+        for (const auto& p: polygon)
+            contour.emplace_back(p.x(), p.y());
+
+        // Evaluate brightness
+        Rect  brect = boundingRect(contour);
+        const int  xEnd = brect.x + brect.width;
+        const int  yEnd = brect.y + brect.height;
+        unsigned brightness = 0;
+        for(int y = brect.y; y < yEnd; ++y)
+            for(int x = brect.x; x < xEnd; ++x)
+                if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
+                    brightness += img.at<uchar>(x, y);
+
+        return brightness;
+    }
+
     cv::Point calcPolygonCenterOfMass(QPolygonF const& polygon)
     {
         cv::Point centerOfMass(0.0, 0.0);

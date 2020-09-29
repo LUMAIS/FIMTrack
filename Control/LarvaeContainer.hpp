@@ -96,6 +96,7 @@ private:
     void updateLarvaSpine(const int index, const uint time, QPainterPath const& paintSpine, const std::vector<double> &radii);
     void updateLarvaMomentum(const int index, const uint time, QPolygonF const& paintPolygon);
     void updateLarvaArea(const int index, const uint time, QPolygonF const& paintPolygon);
+    void updateLarvaBrightness(const int index, const uint time, QPolygonF const& paintPolygon, cv::Mat const & img);
     void updateLarvaPerimeter(const int index, const uint time, QPolygonF const& paintPolygon);
     void updateLarvaDistance2Origin(const int index);
     void updateLarvaAccumulatedDistance(const int index);

@@ -1363,6 +1363,7 @@ void LarvaeContainer::updateLarvaValues(TrackerSceneLarva const* tLarva)
         this->updateLarvaSpine(                 larvaIndex,         time,   tLarva->getSpine(), tLarva->getSpineRadii());
         this->updateLarvaMomentum(              larvaIndex,         time,   tLarva->getPoligon());
         this->updateLarvaArea(                  larvaIndex,         time,   tLarva->getPoligon());
+        this->updateLarvaBrightness(            larvaIndex,         time,   tLarva->getPoligon(), tLarva->getImg());
         this->updateLarvaPerimeter(             larvaIndex,         time,   tLarva->getPoligon());
         
         this->updateIsCoiledIndicator(          larvaIndex,         time);
@@ -1438,6 +1439,15 @@ void LarvaeContainer::updateLarvaArea(const int index,
 {
     double area                                   = Calc::calcPolygonArea(paintPolygon);
     this->mLarvae[index].parameters[time].area    = area;
+}
+
+void LarvaeContainer::updateLarvaBrightness(const int index,
+                                      const uint time,
+                                      QPolygonF const& paintPolygon,
+                                      cv::Mat const & img)
+{
+    unsigned brightness                                 = Calc::calcBrightness(paintPolygon, img);
+    this->mLarvae[index].parameters[time].brightness    = brightness;
 }
 
 void LarvaeContainer::updateLarvaPerimeter(const int index, 

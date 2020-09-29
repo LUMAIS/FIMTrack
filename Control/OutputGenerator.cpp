@@ -596,6 +596,8 @@ void OutputGenerator::drawTrackingResults(const std::string& trackImgPath,
     }
     
     cv::imwrite(trackImgPath, resultantTrackImage);
+    tmpImg.release();
+    resultantTrackImage.release();
 }
 
 void OutputGenerator::drawTrackingResultsNoNumbers(const std::string& trackImgPath,

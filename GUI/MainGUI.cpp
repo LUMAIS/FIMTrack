@@ -674,6 +674,28 @@ void MainGUI::on_treeView_itemSelectionChanged()
 void MainGUI::on_btnLoadDlcTrack_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("DLC JSON (*.json)"));
-    if(!fileName.isEmpty())
+    if(!fileName.isEmpty()) {
         this->_dlcTrackingFile = fileName;
+//        cv::FileStorage fs = cv::FileStorage(path, cv::FileStorage::READ, StringConstats::textFileCoding);
+//        if (fs.isOpened()) {
+//            //cv::FileNode root = fs["points"];
+
+//            int undist;
+//            fs["useUndist"] >> undist;
+//            useUndist = (undist == 0) ? false : true;
+
+//            fs["imgNames"] >> imgPaths;
+
+
+//            cv::FileNode node = fs["data"];
+
+//            for (auto const& n : node)
+//            {
+//                Larva l;
+//                n >> l;
+//                dstLarvae.push_back(l);
+//            }
+//        }
+//        fs.release();
+    }
 }

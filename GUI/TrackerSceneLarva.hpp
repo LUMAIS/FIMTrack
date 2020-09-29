@@ -51,7 +51,8 @@ class TrackerSceneLarva: public QObject
 public:
     TrackerSceneLarva (QGraphicsScene *scene, 
                        Larva *larva, 
-                       const QColor &color);
+                       const QColor &color,
+                       const QString & larvaImg);
     
     ~TrackerSceneLarva ();
     
@@ -109,6 +110,7 @@ public slots:
     int getCurrentTimePoint() const {return this->mCurrentTime;}
     
     QPolygonF getPoligon() const {return this->mSilhouette->polygon();}
+    cv::Mat const& getImg() const {return this->mImg;}
     QPainterPath getSpine() const {return this->mSpine->path();}
     std::vector<double> getSpineRadii() const 
     {
@@ -156,6 +158,7 @@ private:
     int                                     mCurrentTime;
     
     Larva*                                  mLarva;
+    cv::Mat                                 mImg;
     
     QColor                                  mColor;
     

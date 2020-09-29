@@ -35,7 +35,8 @@
 
 TrackerSceneLarva::TrackerSceneLarva(QGraphicsScene *scene, 
                                      Larva *larva, 
-                                     QColor const& color)
+                                     QColor const& color,
+                                     const QString & larvaImg)
 {
     this->mShowSpine                = true;
     this->mShowPath                 = true;
@@ -47,6 +48,7 @@ TrackerSceneLarva::TrackerSceneLarva(QGraphicsScene *scene,
     
     this->mScene                    = scene;
     this->mLarva                    = larva;
+    this->mImg                      = cv::imread(larvaImg.toStdString(), cv::IMREAD_GRAYSCALE);
     this->mColor                    = color;
     this->mSpine                    = this->mScene->addPath(QPainterPath());
     this->mPath                     = this->mScene->addPath(QPainterPath());
@@ -67,7 +69,8 @@ TrackerSceneLarva::TrackerSceneLarva(QGraphicsScene *scene,
 }
 
 TrackerSceneLarva::~TrackerSceneLarva()
-{ 
+{
+    this->mImg.release();
 }
 
 void TrackerSceneLarva::invert(uint time)

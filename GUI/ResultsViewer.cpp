@@ -588,7 +588,8 @@ void ResultsViewer::setupLarvaeTabs()
         qsrand(QTime::currentTime().msec());
         TrackerSceneLarva* tLarva = mScene->addLarva(
                     mLarvaeContainer.getLarvaPointer(i), 
-                    QColor(qrand() % 256, qrand() % 256, qrand() % 256));
+                    QColor(qrand() % 256, qrand() % 256, qrand() % 256),
+                    mFileNames.at(i));
         
         ui->larvaTabWidget->addTab(
                     new LarvaTab(tLarva, 

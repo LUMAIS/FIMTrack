@@ -58,7 +58,7 @@ public:
     TrackerScene(QObject *parent = 0);
     ~TrackerScene();
     
-    TrackerSceneLarva* addLarva(Larva *larva, QColor color);
+    TrackerSceneLarva* addLarva(Larva *larva, QColor color, const QString & larvaImg);
         
     /**
     * Sets the image to be displayed

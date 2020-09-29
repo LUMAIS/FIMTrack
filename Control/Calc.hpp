@@ -143,6 +143,15 @@ namespace Calc
     double calcPolygonArea(QPolygonF const& polygon);
 
     /**
+     * @brief Calculate accumulated brightness of the polygon area
+     * @param polygon, whose brightness in the img is evaluated
+     * @param img, whose polygon area is used for the brightness evaluation
+     * @return accumulated brightness of the polygon
+     */
+    unsigned calcBrightness(QPolygonF const& polygon,
+                            cv::Mat const & img);
+
+    /**
      * @brief calcPolygonCenterOfMass
      * @see http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
      * @param poligon

@@ -46,9 +46,9 @@ TrackerScene::~TrackerScene()
     this->clear();
 }
 
-TrackerSceneLarva* TrackerScene::addLarva(Larva* larva, QColor color)
+TrackerSceneLarva* TrackerScene::addLarva(Larva* larva, QColor color, const QString & larvaImg)
 {
-    TrackerSceneLarva *res = new TrackerSceneLarva(this, larva, color);
+    TrackerSceneLarva *res = new TrackerSceneLarva(this, larva, color, larvaImg);
     return res;
 }
 
