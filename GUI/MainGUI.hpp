@@ -57,6 +57,7 @@
 #include "Control/Tracker.hpp"
 
 #include "Data/RawLarva.hpp"
+#include "Data/DlcTrack.hpp"
 
 #include "TrackerScene.hpp"
 
@@ -106,6 +107,8 @@ private slots:
 
     void on_btnLoadDlcTrack_clicked();
 
+    void on_cbDlcTrack_stateChanged(int state);
+
 private:
     Ui::MainGUI*                ui;
     PreferencesDialogWindow*    _preferencesDialogWindow;
@@ -125,7 +128,8 @@ private:
     
     QString                     _configurationFile;
 
-    QString                     _dlcTrackingFile;
+    QString                     _dlcTrackFile;
+    DlcTrack                    _dlcTrack;
     
     void showImage(QString path);
     void readParameters();

@@ -422,7 +422,7 @@ void MainGUI::trackingDoneSlot()
     try
     {
         this->_fileNames.clear();
-        this->_dlcTrackingFile.clear();
+        this->_dlcTrackFile.clear();
         this->ui->btnTrack->setText(QString("Track"));
         this->ui->btnTrack->setEnabled(true);
         this->ui->btnPreview->setEnabled(true);
@@ -468,8 +468,8 @@ void MainGUI::updateTreeViewer()
         QTreeWidgetItem *item = new QTreeWidgetItem(this->ui->treeView);
         item->setText(0, QString("Job ").append(QString::number(this->_jobs.size())));
         QString  jobInf(fInfo.absolutePath());
-        if(!_dlcTrackingFile.isEmpty())
-            jobInf += QString("; DLC: ").append(_dlcTrackingFile.section('/', -1));  // Fetch file name without directories
+        if(!_dlcTrackFile.isEmpty())
+            jobInf += QString("; DLC: ").append(_dlcTrackFile.section('/', -1));  // Fetch file name without directories
         item->setText(1, jobInf);
         this->ui->treeView->addTopLevelItem(item);
         
@@ -495,7 +495,7 @@ void MainGUI::resetListViewe()
 {
     this->_scene->clearScene();
     this->_fileNames.clear();
-    this->_dlcTrackingFile.clear();
+    this->_dlcTrackFile.clear();
     this->ui->treeView->clear();
     this->_jobs.clear();
     
@@ -675,27 +675,51 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("DLC JSON (*.json)"));
     if(!fileName.isEmpty()) {
-        this->_dlcTrackingFile = fileName;
-//        cv::FileStorage fs = cv::FileStorage(path, cv::FileStorage::READ, StringConstats::textFileCoding);
-//        if (fs.isOpened()) {
-//            //cv::FileNode root = fs["points"];
+        _dlcTrackFile = fileName;
+        FileStorage fs = FileStorage(_dlcTrackFile.toStdString(), FileStorage::READ, StringConstats::textFileCoding);
+        if (fs.isOpened()) {
+            _dlcTrack.clear();
 
-//            int undist;
-//            fs["useUndist"] >> undist;
-//            useUndist = (undist == 0) ? false : true;
+            FileNode meta = fs["metadata"];
+            // Read point names
+            PointNames pointNames;
+            meta["all_joints_names"] >> pointNames;
+            // Read the number of frames
+            int nframes;
+            meta["nframes"] >> nframes;
+            unsigned char frameDigs = 0;  // The number of digits in nframes to consider '0' padding
+            int i = nframes;
+            while(i > 0) {
+                frameDigs += 1;
+                i /= 10;
+            }
 
-//            fs["imgNames"] >> imgPaths;
+            // Read points
+            LarvaeTrajectories  trajects;
+            trajects.resize(nframes);
+            for(unsigned ifr = 0; ifr < nframes; ++ifr) {
+                string siframe = std::to_string(ifr);
+                FileNode frame = fs[string("frame").append(string(frameDigs - siframe.length(), '0')).append(siframe)];
+                NamedLarvaePoints& nlpts = trajects[ifr];
+                //frame["coordinates"][0] >> nlpts;
+                nlpts.resize(pointNames.size());
+                for(unsigned ipt = 0; ipt < nlpts.size(); ++ipt)
+                    frame["coordinates"][0][ipt]>>nlpts[ipt];
+            }
 
+            _dlcTrack.initialize(std::move(pointNames), std::move(trajects));
+        }
+        fs.release();
+    }
+}
 
-//            cv::FileNode node = fs["data"];
-
-//            for (auto const& n : node)
-//            {
-//                Larva l;
-//                n >> l;
-//                dstLarvae.push_back(l);
-//            }
-//        }
-//        fs.release();
+void MainGUI::on_cbDlcTrack_stateChanged(int state)
+{
+    if(state == Qt::Unchecked) {
+        ui->btnLoadDlcTrack->setEnabled(false);
+        _dlcTrack.active = false;
+    } else {
+        ui->btnLoadDlcTrack->setEnabled(true);
+        _dlcTrack.active = true;
     }
 }
