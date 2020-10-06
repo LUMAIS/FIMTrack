@@ -1,0 +1,4 @@
+[submodule "Utility/QCustomPlot"]
+	path = Utility/QCustomPlot
+	url = https://github.com/luav/QCustomPlot.git
+	branch = v1

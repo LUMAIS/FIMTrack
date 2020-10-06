@@ -1,9 +1,9 @@
 SOURCES += \
     Utility/FileStorageUtility.cpp \
-    Utility/qcustomplot.cpp \
+    Utility/QCustomPlot/qcustomplot.cpp \
     Utility/Plotter.cpp
 
 HEADERS += \
     Utility/FileStorageUtility.hpp \
-    Utility/qcustomplot.h \
+    Utility/QCustomPlot/qcustomplot.h \
     Utility/Plotter.hpp

@@ -27,6 +27,9 @@ Details can be found in
 
 For more informations contact fim[AT]uni-muenster[DOT]de
 
+This FIMTrack fork extends the original version with some additional functionality, including the integration of tracking data from [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut).
+\authr Artem Lutov &lt;&#108;ua&#64;&#108;utan&#46;ch&gt;
+
 ## Known Forks
 
 * An extension of the latest original FIMTrack aimed for fish tracking: https://github.com/wildner/FIMTrack_extension
@@ -34,24 +37,42 @@ For more informations contact fim[AT]uni-muenster[DOT]de
 
 ## Building FIMTrack
 
-First download [QCustomPlot](http://www.qcustomplot.com/) (ver. 1.3.2) and place the header file `qcustomplot.h` and the source files `qcustomplot.cpp` in the `Utility` folder of FIMTrack.
+> To clone this repository with submodules use:
+> ```
+> $ git clone --recursive <repo_url>
+> ```
+
+It fetches [QCustomPlot](http://www.qcustomplot.com/) (ver. 1.3.2) submodule. To fetch submodules after the non-recursive clone, execute:
+```
+$ git submodule update --init --recursive
+```
 
 ### Linux
 These are instructions for Ubuntu/Debian systems, the packages should be similar on other distributions.
 
 #### Dependencies
-        sudo apt-get install git libopencv-dev qt5-default g++
+```
+$ sudo apt-get install git libopencv-dev qt5-default g++
+```
 
-#### Building
-        git clone https://github.com/i-git/FIMTrack.git FIMTrack
-        cd FIMTrack
-        qmake FIMTrack.pro
-        make
-        cd build/release/bin
-        ./FIMTrack
+#### Build
 
-### OS X El Capitan 10.11 and Yosemite 10.10
-We suggest to use Xcode and [Homebrew](http://brew.sh/) for building FIMTrack on Mac OS X.
+Execute from the repository directory:
+```
+qmake
+make -j 4
+```
+> To build debug version: `make debug -j 4`
+
+To execute the built app:
+```
+$ build/release/bin/FIMTrack
+```
+> To execute debug version: `build/debug/bin/FIMTrack`
+
+
+### Mac OS X
+Either use the same workflow as [Linux Build](####Build) or perform the build with Xcode and [Homebrew](http://brew.sh/).
 
 #### Dependencies
 * Git
@@ -64,15 +85,7 @@ We suggest to use Xcode and [Homebrew](http://brew.sh/) for building FIMTrack on
     * `sudo brew install qt5`
     * `sudo brew link --force qt5`
     
-Ensure that OpenCV v.4 is installed and its headers are located in `/usr/local/include/opencv4`:
+Ensure that OpenCV v4 is installed and its headers are located in `/usr/local/include/opencv4`:
 ```sh
 $ sudo ln -s `find /usr/local -name "opencv4" -type d | grep "/include/"` /usr/local/include/opencv4
 ```
-
-#### Building
-        git clone https://github.com/i-git/FIMTrack.git FIMTrack
-        cd FIMTrack
-        qmake FIMTrack.pro
-        make
-        cd build/release/bin
-        ./FIMTrack

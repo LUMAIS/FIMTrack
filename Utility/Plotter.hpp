@@ -34,7 +34,7 @@
 #ifndef PLOTTER_HPP
 #define PLOTTER_HPP
 
-#include "qcustomplot.h"
+#include "QCustomPlot/qcustomplot.h"
 
 class Plotter : public QCustomPlot
 {
