@@ -54,7 +54,11 @@ public:
                       cv::Mat const& distCoeffs, 
                       cv::Size const& imageSize);
     
-    void getUndistortImage(cv::Mat const& src, 
+    //! \brief Produce the undistorted image if possible
+    //! \param src  - source image
+    //! \param dst  - resulting image, mapped from the source one
+    //! \return Whether the undistortion is performed
+    bool getUndistortImage(cv::Mat const& src,
                            cv::Mat &dst) const;
     
     bool isReady() const;

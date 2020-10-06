@@ -274,7 +274,7 @@ namespace Calc
         for(int y = brect.y; y < yEnd; ++y)
             for(int x = brect.x; x < xEnd; ++x)
                 if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
-                    brightness += img.at<uchar>(x, y);
+                    brightness += img.at<uchar>(y, x);
 
         return brightness;
     }

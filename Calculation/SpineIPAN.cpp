@@ -686,8 +686,4 @@ void SpineIPAN::calcDistanceMaps(uint gridSize)
 
     // calculate the absolute differences of all distance values in the two images
     cv::absdiff(distMapSecond, distMapFirst, absDiffDistMap);
-
-    imgSecondHalf.release();
-    imgFirstHalf.release();
-    contourContainer.clear();
 }

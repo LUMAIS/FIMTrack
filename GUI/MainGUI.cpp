@@ -154,8 +154,8 @@ void MainGUI::showImage(QString path)
     this->readParameters();
     
     // get the selected image fileNames list
-    cv::Mat img = cv::imread(QtOpencvCore::qstr2str(path), 0);
-    
+    cv::Mat img = cv::imread(QtOpencvCore::qstr2str(path), IMREAD_GRAYSCALE);  // 0
+
     if(img.empty())
     {
         QMessageBox::information(this, "Information", QString("Can't load image ").append(path));
@@ -166,19 +166,19 @@ void MainGUI::showImage(QString path)
     if(this->_undistorter.isReady())
     {
         cv::Mat dst;
-        this->_undistorter.getUndistortImage(img, dst);
-        dst.copyTo(img);
+        if(this->_undistorter.getUndistortImage(img, dst)) {
+            dst.copyTo(img);
         
-        if(img.empty())
-        {
-            QMessageBox::information(this, "Information", QString("Can't undistore image"));
-            return;
+            if(img.empty())
+            {
+                QMessageBox::information(this, "Information", QString("Can't undistore image"));
+                return;
+            }
         }
     }
     
     // generate a contours container
     contours_t contours;
-    
     contours_t collidedContours;
     
     // preprocess the image for preview
@@ -189,8 +189,8 @@ void MainGUI::showImage(QString path)
                                     GeneralParameters::iMinLarvaeArea, 
                                     GeneralParameters::iMaxLarvaeArea);
     
-    cv::Mat grayImg = img.clone();
-    
+    const cv::Mat grayImg = img.clone();
+
     // set the color to BGR to draw contours and contour sizes into the image
     cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
     
@@ -202,7 +202,7 @@ void MainGUI::showImage(QString path)
     for(auto const& c : contours)
     {
         // Generate a RawLarva Object and draw raw larval informations
-        RawLarva rawLarva(c,grayImg);
+        RawLarva rawLarva(c, grayImg);
 
         // draw the contour size and brightness into the image
         std::stringstream ss;
@@ -709,7 +709,6 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
 
             _dlcTrack.initialize(std::move(pointNames), std::move(trajects));
         }
-        fs.release();
     }
 }
 

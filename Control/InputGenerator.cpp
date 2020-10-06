@@ -45,7 +45,6 @@ void InputGenerator::readMatrices(const std::string& path,
         fs["distCoeffs"]    >> distCoeffs;
         fs["ImageHeight"]   >> imageSize.height;
         fs["ImageWidth"]    >> imageSize.width;
-        fs.release();
     }
 }
 
@@ -71,7 +70,6 @@ void InputGenerator::readOutputLarvae(const std::string& path, std::vector<Larva
             dstLarvae.push_back(l);
         }
     }
-    fs.release();
 }
 
 void InputGenerator::readRegionOfInterests(const std::string& path, RegionOfInterestContainer* ROIContainert)
@@ -79,11 +77,7 @@ void InputGenerator::readRegionOfInterests(const std::string& path, RegionOfInte
     cv::FileStorage fs = cv::FileStorage(path, cv::FileStorage::READ, StringConstats::textFileCoding);
 
     if (fs.isOpened())
-    {
         fs["ROIContainer"] >> ROIContainert;
-    }
-
-    fs.release();
 }
 
 void InputGenerator::readLandmarks(const std::string& path, LandmarkContainer* landmarkContainer)
@@ -91,11 +85,7 @@ void InputGenerator::readLandmarks(const std::string& path, LandmarkContainer* l
     cv::FileStorage fs = cv::FileStorage(path, cv::FileStorage::READ, StringConstats::textFileCoding);
 
     if (fs.isOpened())
-    {
         fs["LandmarkContainer"] >> landmarkContainer;
-    }
-
-    fs.release();
 }
 
 void InputGenerator::loadConfiguration(const std::string& path)
@@ -147,5 +137,4 @@ void InputGenerator::loadConfiguration(const std::string& path)
         in["iFramesForSpeedCalculation"]                >> LarvaeExtractionParameters::StopAndGoCalculation::iFramesForSpeedCalculation;
         in["iSpeedThreshold"]                           >> LarvaeExtractionParameters::StopAndGoCalculation::iSpeedThreshold;
     }
-    in.release();
 }

@@ -21,7 +21,9 @@ include(Main/main.pri)
 include(Calculation/calculation.pri)
 
 CONFIG  += app_bundle
-CONFIG  += release
+#CONFIG  += release
+CONFIG  += debug_and_release
+#CONFIG += build_all
 
 CONFIG(debug, debug|release) {
     DESTDIR     = build/debug/bin
@@ -40,7 +42,7 @@ CONFIG(debug, debug|release) {
 
 macx {
 
-    QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.11
+	#QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.11
 
     QMAKE_CXXFLAGS += -stdlib=libc++ -Weffc++
 
@@ -59,7 +61,7 @@ macx {
 
 unix {
 
-    QMAKE_CXXFLAGS += -std=c++11 -Weffc++ -pedantic -Wno-unknown-pragmas
+	QMAKE_CXXFLAGS += -std=c++11 -Weffc++ -pedantic -Wno-unknown-pragmas
 
     INCLUDEPATH += /usr/include/opencv4
 

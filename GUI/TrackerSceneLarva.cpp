@@ -70,7 +70,6 @@ TrackerSceneLarva::TrackerSceneLarva(QGraphicsScene *scene,
 
 TrackerSceneLarva::~TrackerSceneLarva()
 {
-    this->mImg.release();
 }
 
 void TrackerSceneLarva::invert(uint time)

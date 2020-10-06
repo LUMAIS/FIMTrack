@@ -31,6 +31,7 @@
  *                                                                           *
  *****************************************************************************/
 
+#include <cassert>
 #include "RawLarva.hpp"
 
 using namespace cv;
@@ -47,14 +48,21 @@ RawLarva::RawLarva(const contour_t& _contour, Mat const & img)
     area = contourArea(contour);
 
     // Evaluate brightness
-    Rect  brect = boundingRect(contour);
+    const Rect  brect = boundingRect(contour);
     const int  xEnd = brect.x + brect.width;
     const int  yEnd = brect.y + brect.height;
     brightness = 0;
-    for(int y = brect.y; y < yEnd; ++y)
-        for(int x = brect.x; x < xEnd; ++x)
+    //fprintf(stderr, "Brightness ROI (%d, %d; %d, %d) content:\n", brect.x, brect.y, brect.width, brect.height);
+    for(int y = brect.y; y < yEnd; ++y) {
+        for(int x = brect.x; x < xEnd; ++x) {
+            //fprintf(stderr, "%d ", img.at<uchar>(y, x));
             if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
-                brightness += img.at<uchar>(x, y);
+                brightness += img.at<uchar>(y, x);
+        }
+        //fprintf(stderr, "\n");
+    }
+    //fprintf(stderr, "area: %f, brightness: %d\n", area, brightness);
+    //assert(0 && "area validation vailed");
 
     // number of discrete spine points
     int nPoints = 5;

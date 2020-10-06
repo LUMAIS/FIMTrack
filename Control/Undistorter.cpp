@@ -101,12 +101,14 @@ void Undistorter::setParameter(cv::Mat const& cameraMatrix,
     this->_isInitialised = true;
 }
 
-void Undistorter::getUndistortImage(const cv::Mat &src, cv::Mat &dst) const
+bool Undistorter::getUndistortImage(const cv::Mat &src, cv::Mat &dst) const
 {
     if(this->_isInitialised)
     {
         cv::remap(src, dst, this->_mapX, this->_mapY, cv::INTER_CUBIC);
+        return true;
     }
+    return false;
 }
 
 bool Undistorter::isReady() const

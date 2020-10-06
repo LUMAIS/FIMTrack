@@ -437,7 +437,6 @@ void Tracker::assignByHungarian(unsigned int timePoint)
 
             for (int i = 0; i < assigments.rows; ++i)
             {
-
                 foundLarvaForRawLarva = false;
                 for (int j = 0; j < assigments.cols; ++j)
                 {
@@ -454,7 +453,6 @@ void Tracker::assignByHungarian(unsigned int timePoint)
                         break;
                     }
                 }
-
 
                 if (!foundLarvaForRawLarva)
                 {

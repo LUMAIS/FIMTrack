@@ -83,8 +83,6 @@ void OutputGenerator::saveConfiguration(const std::string& path)
         out << "iFramesForSpeedCalculation"                 << LarvaeExtractionParameters::StopAndGoCalculation::iFramesForSpeedCalculation;
         out << "iSpeedThreshold"                            << LarvaeExtractionParameters::StopAndGoCalculation::iSpeedThreshold;
     }
-    
-    out.release();
 }
 
 void OutputGenerator::writePoints(std::string const& path,
@@ -101,7 +99,6 @@ void OutputGenerator::writePoints(std::string const& path,
         }
         fs << "]";
     }
-    fs.release();
 }
 
 void OutputGenerator::writeCSVFile(std::string const& path,
@@ -559,7 +556,6 @@ void OutputGenerator::writeYMLFile(const std::string& path,
             fs << "LandmarkContainer" << landmarkContainer;
         }
     }
-    fs.release();
 }
 
 void OutputGenerator::drawTrackingResults(const std::string& trackImgPath,
@@ -596,8 +592,6 @@ void OutputGenerator::drawTrackingResults(const std::string& trackImgPath,
     }
     
     cv::imwrite(trackImgPath, resultantTrackImage);
-    tmpImg.release();
-    resultantTrackImage.release();
 }
 
 void OutputGenerator::drawTrackingResultsNoNumbers(const std::string& trackImgPath,
@@ -631,8 +625,6 @@ void OutputGenerator::drawTrackingResultsNoNumbers(const std::string& trackImgPa
     }
     
     cv::imwrite(trackImgPath, resultantTrackImage);
-    tmpImg.release();
-    resultantTrackImage.release();
 }
 
 void OutputGenerator::saveResultImage(const QString& path, const QImage& img)

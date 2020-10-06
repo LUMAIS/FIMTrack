@@ -121,10 +121,8 @@ void Backgroundsubtractor::generateBackgroundImage(std::vector<std::string> cons
             cv::Mat dst;
             undist.getUndistortImage(this->_backgroundImage, dst);
             dst.copyTo(this->_backgroundImage);
-            dst.release();
         }
         
-        grayImage.release();
         emit sendLogMessage(QString("Calculation of the Backgroundimage Done"), INFO);
     }
 }
@@ -158,7 +156,7 @@ void Backgroundsubtractor::generateBackgroundImage(const std::vector<std::string
             undist.getUndistortImage(this->_backgroundImage, dst);
             dst.copyTo(this->_backgroundImage);
         }
-        grayImage.release();
+
         emit sendLogMessage(QString("Calculation of the Backgroundimage Done"), INFO);
     }
 }
