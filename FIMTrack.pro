@@ -47,14 +47,17 @@ macx {
     QMAKE_CXXFLAGS += -stdlib=libc++ -Weffc++
 
     # NOTE: /usr/local/include might need to be excluded in case of errors with `#include_next <stdlib.h>`
-    INCLUDEPATH += /usr/local/include /usr/local/include/opencv4
+	INCLUDEPATH += /usr/local/include /usr/local/include/opencv4 /usr/local/include/hdf5/serial
 
     LIBS += -L/usr/local/lib \
             -lopencv_core \
             -lopencv_highgui \
             -lopencv_imgproc \
             -lopencv_imgcodecs \
-            -lopencv_calib3d
+			-lopencv_calib3d \
+			-lhdf5_cpp \
+			-lhdf5_serial
+#			-lopencv_hdf
 
     QMAKE_CXXFLAGS_WARN_ON = -Wno-unused-variable -Wno-reorder
 }
@@ -63,13 +66,16 @@ unix {
 
 	QMAKE_CXXFLAGS += -std=c++11 -Weffc++ -pedantic -Wno-unknown-pragmas
 
-    INCLUDEPATH += /usr/include/opencv4
+	INCLUDEPATH += /usr/include/opencv4 /usr/include/hdf5/serial
 
     LIBS += -lopencv_core \
             -lopencv_highgui \
             -lopencv_imgproc \
             -lopencv_imgcodecs \
-            -lopencv_calib3d
+			-lopencv_calib3d \
+			-lhdf5_cpp \
+			-lhdf5_serial
+#			-lopencv_hdf
 
     QMAKE_CXXFLAGS_WARN_ON = -Wno-unused-variable -Wno-reorder
 }

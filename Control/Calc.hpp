@@ -44,6 +44,8 @@
 #include <QPolygonF>
 #include <qmath.h>
 
+#include "Data/DlcTrack.hpp"
+
 namespace Calc
 {
 
@@ -133,6 +135,15 @@ namespace Calc
     double calcAngleDiff(double const angle1, double const angle2);
 
     double angleToRadian(double const angle);
+
+    /**
+     * @brief Calculate id of DLC tracking for the current contour
+     * @param polygon  - larvae polygon from FIMTrack
+     * @param dlcLarvae  - DLC tacking larvae, containing contours
+     * @param mp  - parameters for the larvae matching
+     * @return id of the DLC-tracked larva or 0 if current conrour does not correspond to any DLC-tracked one
+     */
+    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp);
 
     /**
     * @brief calcPoligonArea

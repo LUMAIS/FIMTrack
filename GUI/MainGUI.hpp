@@ -110,6 +110,9 @@ private slots:
     void on_cbDlcTrack_stateChanged(int state);
 
 private:
+    QString                     _dlcTrackFile;
+    dlc::Tracker                _dlcTrack;
+
     Ui::MainGUI*                ui;
     PreferencesDialogWindow*    _preferencesDialogWindow;
     LOGWindow*                  _logWindow;
@@ -128,9 +131,6 @@ private:
     
     QString                     _configurationFile;
 
-    QString                     _dlcTrackFile;
-    DlcTrack                    _dlcTrack;
-    
     void showImage(QString path);
     void readParameters();
     

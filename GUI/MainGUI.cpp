@@ -40,9 +40,9 @@ using std::string;
 
 MainGUI::MainGUI(QWidget *parent) : 
     QMainWindow(parent), 
-    ui(new Ui::MainGUI)
+    ui(new Ui::MainGUI),
+    _tracker(_dlcTrack)
 {
-    
     try
     {
         ui->setupUi(this);
@@ -650,7 +650,7 @@ void MainGUI::on_actionNew_triggered()
 
 void MainGUI::on_actionResults_Viewer_triggered()
 {
-    this->_resultsViewer = new ResultsViewer(this);
+    this->_resultsViewer = new ResultsViewer(_dlcTrack, this);
     _resultsViewer->setAttribute(Qt::WA_DeleteOnClose);
     _resultsViewer->show();
 }
@@ -673,42 +673,49 @@ void MainGUI::on_treeView_itemSelectionChanged()
 
 void MainGUI::on_btnLoadDlcTrack_clicked()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("DLC JSON (*.json)"));
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("DLC Tracking (*.h5 *.csv)"));  // "DLC JSON (*.json)"
     if(!fileName.isEmpty()) {
-        _dlcTrackFile = fileName;
-        FileStorage fs = FileStorage(_dlcTrackFile.toStdString(), FileStorage::READ, StringConstats::textFileCoding);
-        if (fs.isOpened()) {
-            _dlcTrack.clear();
-
-            FileNode meta = fs["metadata"];
-            // Read point names
-            PointNames pointNames;
-            meta["all_joints_names"] >> pointNames;
-            // Read the number of frames
-            int nframes;
-            meta["nframes"] >> nframes;
-            unsigned char frameDigs = 0;  // The number of digits in nframes to consider '0' padding
-            int i = nframes;
-            while(i > 0) {
-                frameDigs += 1;
-                i /= 10;
-            }
-
-            // Read points
-            LarvaeTrajectories  trajects;
-            trajects.resize(nframes);
-            for(unsigned ifr = 0; ifr < nframes; ++ifr) {
-                string siframe = std::to_string(ifr);
-                FileNode frame = fs[string("frame").append(string(frameDigs - siframe.length(), '0')).append(siframe)];
-                NamedLarvaePoints& nlpts = trajects[ifr];
-                //frame["coordinates"][0] >> nlpts;
-                nlpts.resize(pointNames.size());
-                for(unsigned ipt = 0; ipt < nlpts.size(); ++ipt)
-                    frame["coordinates"][0][ipt]>>nlpts[ipt];
-            }
-
-            _dlcTrack.initialize(std::move(pointNames), std::move(trajects));
-        }
+        QFileInfo finf(fileName);
+        QString ext = finf.completeSuffix();  // ext = "csv"
+        bool loaded = ext == "csv" ? _dlcTrack.loadCSV(fileName.toStdString()) : _dlcTrack.loadHDF5(fileName.toStdString());
+        if(!loaded) {
+            // ::warning
+            QMessageBox:: critical(this, tr("File loading error"), tr("File loading failed. Please, check the file format."));
+        } else _dlcTrackFile = fileName;
+//        FileStorage fs = FileStorage(_dlcTrackFile.toStdString(), FileStorage::READ, StringConstats::textFileCoding);
+//        if (fs.isOpened()) {
+//            _dlcTrack.clear();
+//
+//            _dlcTrack.loadHDF5();
+//            FileNode meta = fs["metadata"];
+//            // Read point names
+//            PointNames pointNames;
+//            meta["all_joints_names"] >> pointNames;
+//            // Read the number of frames
+//            int nframes;
+//            meta["nframes"] >> nframes;
+//            unsigned char frameDigs = 0;  // The number of digits in nframes to consider '0' padding
+//            int i = nframes;
+//            while(i > 0) {
+//                frameDigs += 1;
+//                i /= 10;
+//            }
+//
+//            // Read points
+//            LarvaeTrajectories  trajects;
+//            trajects.resize(nframes);
+//            for(unsigned ifr = 0; ifr < nframes; ++ifr) {
+//                string siframe = std::to_string(ifr);
+//                FileNode frame = fs[string("frame").append(string(frameDigs - siframe.length(), '0')).append(siframe)];
+//                NamedLarvaePoints& nlpts = trajects[ifr];
+//                //frame["coordinates"][0] >> nlpts;
+//                nlpts.resize(pointNames.size());
+//                for(unsigned ipt = 0; ipt < nlpts.size(); ++ipt)
+//                    frame["coordinates"][0][ipt]>>nlpts[ipt];
+//            }
+//
+//            _dlcTrack.initialize(std::move(pointNames), std::move(trajects));
+//        }
     }
 }
 

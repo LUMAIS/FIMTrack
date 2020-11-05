@@ -40,7 +40,7 @@ using std::vector;
 using std::string;
 using std::map;
 
-Tracker::Tracker(QObject* parent) : QObject(parent), _stopTracking(false)
+Tracker::Tracker(dlc::Tracker& dlcTrack, QObject* parent) : QObject(parent), _larvaeContainer(dlcTrack), _stopTracking(false)
 {
     qRegisterMetaType<LOGLEVEL>("LOGLEVEL");
     connect(this, SIGNAL(logMessageSignal(QString, LOGLEVEL)), Logger::getInstance(), SLOT(handleLogMessage(QString, LOGLEVEL)));

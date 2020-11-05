@@ -34,9 +34,10 @@
 #include "ResultsViewer.hpp"
 #include "ui_ResultsViewer.h"
 
-ResultsViewer::ResultsViewer(QWidget *parent) :
+ResultsViewer::ResultsViewer(dlc::Tracker& dlcTrack, QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::ResultsViewer)
+    ui(new Ui::ResultsViewer),
+    mLarvaeContainer(dlcTrack)
 {
     ui->setupUi(this);
     
@@ -171,6 +172,7 @@ void ResultsViewer::showTable(const int index)
             }
             
             cv::Point mom;
+            unsigned idDlc;
             double area;
             unsigned brightness;
             double bodyBending;
@@ -200,6 +202,7 @@ void ResultsViewer::showTable(const int index)
                 {
                     if (l.getMomentumAt(index,mom))
                     {
+                        l.getIdDlcAt(index,brightness);
                         l.getAreaAt(index,area);
                         l.getBrightnessAt(index,brightness);
                         l.getMainBodyBendingAngleAt(index,bodyBending);
@@ -210,6 +213,7 @@ void ResultsViewer::showTable(const int index)
                         l.getDistToOriginAt(index,distToOrigin);                        
                         
                         unsigned iItem = 0;
+                        tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(idDlc)));
                         tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(area)));
                         tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(brightness)));
                         tableModel->setItem(iItem++,cols, new QStandardItem(QString::number(mom.x)));

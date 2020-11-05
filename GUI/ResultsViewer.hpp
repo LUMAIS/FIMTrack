@@ -44,6 +44,7 @@
 #include "Control/LarvaeContainer.hpp"
 
 #include "Data/Larva.hpp"
+#include "Data/DlcTrack.hpp"
 
 #include "TrackerGraphicsView.hpp"
 #include "TrackerScene.hpp"
@@ -62,7 +63,7 @@ class ResultsViewer : public QDialog
     Q_OBJECT
     
 public:
-    explicit ResultsViewer(QWidget *parent = 0);
+    explicit ResultsViewer(dlc::Tracker& dlcTrack, QWidget *parent = 0);
     ~ResultsViewer();
     
     LarvaeContainer* getLarvaeContainer() {return &this->mLarvaeContainer;}

@@ -74,6 +74,7 @@ public:
     spine_t getDiscreteSpine(void) const {return discreteSpine;}
     cv::Point getMidPoint(void) const {return discreteSpine.at((discreteSpine.size() + 1 ) / 2);}
     cv::Point getMomentum(void) const {return momentum;}
+    unsigned getIdDlc() const  { return idDlc; }
     double getArea(void) const {return area;}
     double getBrightness() const  { return brightness; }
     std::vector<double> getLarvalRadii(void) const {return larvalRadii;}
@@ -107,6 +108,10 @@ private:
      */
     cv::Point momentum;
 
+    /**
+     * @brief Larva id imported from DLC (https://github.com/DeepLabCut/DeepLabCut) tracking file
+     */
+    unsigned idDlc;
     /**
      * @brief area is the area of the contour
      */

@@ -97,6 +97,10 @@ public:
          */
         cv::Point momentum;
         /**
+         * @brief Larva id imported from DLC (https://github.com/DeepLabCut/DeepLabCut) tracking file
+         */
+        unsigned idDlc;
+        /**
          * @brief area covered area of the larval contour
          */
         double area;
@@ -280,6 +284,7 @@ public:
     bool getMomentumAt(unsigned int const timePoint, cv::Point & retMomentum) const;
     bool getHeadAt(unsigned int const timePoint, cv::Point & retHead) const;
     bool getTailAt(unsigned int const timePoint, cv::Point & retTail) const;
+    bool getIdDlcAt(const unsigned int timePoint, unsigned &retBrightness) const;
     bool getAreaAt(unsigned int const timePoint, double & retArea) const;
     bool getBrightnessAt(const unsigned int timePoint, unsigned &retBrightness) const;
     bool getVelosityAt(unsigned int const timePoint, double & retVelosity) const;
@@ -304,6 +309,7 @@ public:
     
     // string getter methods
     std::string getStrMomentum(unsigned int const timePoint, unsigned int const dimension) const;
+    std::string getStrIdDlc(const unsigned int timePoint) const;
     std::string getStrArea(unsigned int const timePoint) const;
     std::string getStrBrightness(const unsigned int timePoint) const;
     std::string getStrVelosity(unsigned int const timePoint) const;

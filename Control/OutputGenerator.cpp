@@ -179,7 +179,20 @@ void OutputGenerator::writeCSVFile(std::string const& path,
         
         ofs << std::endl;
     }
-    
+
+    // write idDlc
+    for (size_t t = 0; t < movieLength; ++t)
+    {
+        ofs << "id_dlc(" << t << ")";
+
+        for (auto const& l : larvae)
+        {
+            ofs << "," << l.getStrIdDlc(t).c_str();
+        }
+
+        ofs << std::endl;
+    }
+
     // write area
     for (size_t t = 0; t < movieLength; ++t)
     {

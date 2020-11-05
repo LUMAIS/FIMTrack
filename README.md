@@ -27,8 +27,9 @@ Details can be found in
 
 For more informations contact fim[AT]uni-muenster[DOT]de
 
-This FIMTrack fork extends the original version with some additional functionality, including the integration of tracking data from [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut).
-\authr Artem Lutov &lt;&#108;ua&#64;&#108;utan&#46;ch&gt;
+This FIMTrack fork extends the original version with some additional functionality, including the integration of tracking data from [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut).  
+By Artem Lutov &lt;&#108;ua&#64;&#108;utan&#46;ch&gt;  
+Organizations: [UNIFR](https://www.unifr.ch), [Lutov Analytics](https://lutan.ch/)
 
 ## Known Forks
 
@@ -52,7 +53,7 @@ These are instructions for Ubuntu/Debian systems, the packages should be similar
 
 #### Dependencies
 ```
-$ sudo apt-get install git libopencv-dev qt5-default g++
+$ sudo apt-get install git libopencv-dev libhdf5-dev qt5-default g++
 ```
 
 #### Build

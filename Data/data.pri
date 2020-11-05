@@ -4,6 +4,7 @@ HEADERS += \
     Data/Larva.hpp
 
 SOURCES += \
+	Data/DlcTrack.cpp \
     Data/RawLarva.cpp \
     Data/Larva.cpp
 

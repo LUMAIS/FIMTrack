@@ -100,6 +100,9 @@ void operator>>(cv::FileNode const & n, Larva & larva)
         cv::FileNode valuesNode = (*fnIt)["values"];
         cv::FileNodeIterator vIt = valuesNode.begin();
         
+        int idDlc;
+        (*vIt)["id_dlc"] >> idDlc;
+        values.idDlc = idDlc;
         (*vIt)["area"] >> values.area;
         int brightness;
         (*vIt)["brightness"] >> brightness;

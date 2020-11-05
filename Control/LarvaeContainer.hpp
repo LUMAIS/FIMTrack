@@ -41,6 +41,7 @@
 #include <list>
 
 #include "Data/Larva.hpp"
+#include "Data/DlcTrack.hpp"
 #include "InputGenerator.hpp"
 #include "OutputGenerator.hpp"
 #include "GUI/TrackerScene.hpp"
@@ -53,6 +54,7 @@ class LarvaeContainer : public QObject
     
 private:
     std::vector < Larva >                       mLarvae;
+    dlc::Tracker&                               mDlcTrack;
     double                                      mMaxSpineLength;
     int                                         mMaximumNumberOfTimePoints;
     
@@ -95,6 +97,7 @@ private:
     
     void updateLarvaSpine(const int index, const uint time, QPainterPath const& paintSpine, const std::vector<double> &radii);
     void updateLarvaMomentum(const int index, const uint time, QPolygonF const& paintPolygon);
+    void updateLarvaIdDlc(const int index, const uint time, QPolygonF const& paintPolygon);
     void updateLarvaArea(const int index, const uint time, QPolygonF const& paintPolygon);
     void updateLarvaBrightness(const int index, const uint time, QPolygonF const& paintPolygon, cv::Mat const & img);
     void updateLarvaPerimeter(const int index, const uint time, QPolygonF const& paintPolygon);
@@ -121,7 +124,7 @@ private:
     void calcBearingAngle(const QString &name, const QLineF &l);
     
 public:
-    explicit LarvaeContainer(QObject *parent = 0);
+    explicit LarvaeContainer(dlc::Tracker& dlcTrack, QObject *parent = 0);
     
     Larva* createDefaultLarva(const uint timeStep);
     

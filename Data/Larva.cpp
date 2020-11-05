@@ -211,6 +211,21 @@ bool Larva::getTailAt(const unsigned int timePoint, Point& retTail) const
     return exists;
 }
 
+bool Larva::getIdDlcAt(const unsigned int timePoint, unsigned &retIdDlc) const
+{
+    map<unsigned int, ValuesType>::const_iterator cIt;
+    bool exists = false;
+
+    cIt = parameters.find(timePoint);
+    if(cIt != parameters.end())
+    {
+        retIdDlc = cIt->second.idDlc;
+        exists = true;
+    }
+
+    return exists;
+}
+
 bool Larva::getAreaAt(const unsigned int timePoint, double &retArea) const
 {
     map<unsigned int, ValuesType>::const_iterator cIt;
@@ -548,6 +563,17 @@ string Larva::getStrMomentum(const unsigned int timePoint, const unsigned int di
     if(getMomentumAt(timePoint,momentum))
     {
         ss << getXorY(momentum,dimension);
+    }
+    return ss.str();
+}
+
+string Larva::getStrIdDlc(const unsigned int timePoint) const
+{
+    std::stringstream ss;
+    unsigned idDlc;
+    if(getIdDlcAt(timePoint, idDlc))
+    {
+        ss << idDlc;
     }
     return ss.str();
 }

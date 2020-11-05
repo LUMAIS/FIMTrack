@@ -50,6 +50,7 @@
 #include "Preprocessor.hpp"
 #include "Data/RawLarva.hpp"
 #include "Data/Larva.hpp"
+#include "Data/DlcTrack.hpp"
 #include "OutputGenerator.hpp"
 #include "Logger.hpp"
 #include "Undistorter.hpp"
@@ -75,7 +76,7 @@ public:
      * @brief Tracker is the main constructor for the tracker class
      * @param parent is the parent frame for the default constructor (must be 0)
      */
-    Tracker(QObject *parent = 0);
+    Tracker(dlc::Tracker& dlcTrack, QObject *parent = 0);
 
 //SIGNALS send to the main gui
 signals:

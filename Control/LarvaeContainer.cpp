@@ -33,8 +33,9 @@
 
 #include "LarvaeContainer.hpp"
 
-LarvaeContainer::LarvaeContainer(QObject *parent) :
-    QObject(parent)
+LarvaeContainer::LarvaeContainer(dlc::Tracker& dlcTrack, QObject *parent) :
+    QObject(parent),
+    mDlcTrack(dlcTrack)
 {
     this->mMaxSpineLength = 0.0;
 }
@@ -1431,6 +1432,16 @@ void LarvaeContainer::updateLarvaMomentum(const int index,
     }
     this->mLarvae[index].parameters[time].momentum        = momentum;
     this->mLarvae[index].parameters[time].momentumDist    = momentumDist;
+}
+
+void LarvaeContainer::updateLarvaIdDlc(const int index,
+                                      const uint time,
+                                      QPolygonF const& paintPolygon)
+{
+    unsigned idDlc = time < this->mDlcTrack.size()
+                     ? Calc::calcIdDlc(paintPolygon, this->mDlcTrack.larvae(time), this->mDlcTrack.matchParams())
+                     : 0;
+    this->mLarvae[index].parameters[time].idDlc    = idDlc;
 }
 
 void LarvaeContainer::updateLarvaArea(const int index, 
