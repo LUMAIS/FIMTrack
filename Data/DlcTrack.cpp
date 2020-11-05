@@ -10,6 +10,8 @@
 #include <sstream>  // CSV reading
 #include <unordered_set>  // CSV reading
 #include <cmath>  // round()
+#include <iostream>
+#include <string>
 //#include <h5cpp/all>
 #include <H5Cpp.h>
 //// Note: OpenCV HDF5 works only with the root attributes and datasets representable as Mat
@@ -19,18 +21,46 @@
 #include <cstdio>  // printf()
 #include "DlcTrack.hpp"
 
-using std::string;
-using std::vector;
 //using std::binary_search;
 //using cv::String;
 //using std::cout;
 //using std::endl;
-using cv::Point;
 //using namespace dlc;
+using cv::Mat;
 using namespace H5;
 
 
 namespace dlc {
+
+bool importVideo(const string& vidName, const string& outpDir, const string& frameBaseName, const string& format)
+{
+    cv::VideoCapture cap(vidName);
+    if(!cap.isOpened()) {
+        fprintf(stderr, "ERROR importVideo: video file can not be opened: %s\n", vidName.c_str());
+        return false;
+    }
+    Mat frame;
+    unsigned  nframes = cap.get(cv::CAP_PROP_FRAME_COUNT);
+    uint8_t digs = 0;
+    while(nframes) {
+        ++digs;
+        nframes /= 10;
+    }
+    for(unsigned i = 1; ; ++i) {
+        cap.read(frame);  // >>
+        if(frame.empty())
+            break;
+        string frname = std::to_string(i);
+        if(frname.size() < digs)
+            frname = string(digs - frname.size(), '0');
+        frname = frameBaseName + "-" + frname + "." + format;
+        if(!cv::imwrite(frname, frame)) {
+            fprintf(stderr, "ERROR importVideo: can not save the output image: %s\n", frname.c_str());
+            return false;
+        }
+    }
+    return true;
+}
 
 //bool cmpPoint (const point& a, const Point& b)
 //{
@@ -42,7 +72,7 @@ namespace dlc {
 //    return cmpPoint(larva.center, center);
 //}
 
-bool Tracker::loadHDF5(const std::string& filename)
+bool Tracker::loadHDF5(const string& filename)
 {
     struct DataPoint {
         int64_t frame;
@@ -115,7 +145,7 @@ bool Tracker::loadHDF5(const std::string& filename)
 //        break;
 //    }
 //
-//    cv::Mat lsvs;  // Larvaes data
+//    Mat lsvs;  // Larvaes data
 //    // Read larvaes dataset, which has a compound format
 //    // int offset[2] = { 1, 2 };
 //    h5io->dsread(lsvs, dsname, {0, 1});  // Read from the second element, because the first on is the frame number
@@ -126,7 +156,7 @@ bool Tracker::loadHDF5(const std::string& filename)
 //    return loadTrajects(lsvs, nlvs);
 }
 
-bool Tracker::loadCSV(const std::string& filename)
+bool Tracker::loadCSV(const string& filename)
 {
     std::ifstream finp(filename);
     if(!finp.is_open()) {
@@ -197,17 +227,56 @@ bool Tracker::loadCSV(const std::string& filename)
         return false;
     }
 
-    cv::Mat  rawVals(0, lsvs[0].size(), cv::DataType<val_t>::type);
+    Mat  rawVals(0, lsvs[0].size(), cv::DataType<val_t>::type);
     for (auto& vals: lsvs)
     {
-        // Make a temporary cv::Mat row and add to lsvs _without_ data copy
-        cv::Mat valsView(1, lsvs[0].size(), cv::DataType<val_t>::type, vals.data());
+        // Make a temporary Mat row and add to lsvs _without_ data copy
+        Mat valsView(1, lsvs[0].size(), cv::DataType<val_t>::type, vals.data());
         rawVals.push_back(valsView);
     }
     return loadTrajects(rawVals, nlvs);
 }
 
-bool Tracker::loadTrajects(const cv::Mat& rawVals, unsigned nlarvae, float confmin)
+//bool Tracker::loadJSON(const string& filename)
+//{
+//    // JSON loading
+//    FileStorage fs = FileStorage(_dlcTrackFile.toStdString(), FileStorage::READ, StringConstats::textFileCoding);
+//    if (fs.isOpened()) {
+//        _dlcTrack.clear();
+//
+//        _dlcTrack.loadHDF5();
+//        FileNode meta = fs["metadata"];
+//        // Read point names
+//        PointNames pointNames;
+//        meta["all_joints_names"] >> pointNames;
+//        // Read the number of frames
+//        int nframes;
+//        meta["nframes"] >> nframes;
+//        unsigned char frameDigs = 0;  // The number of digits in nframes to consider '0' padding
+//        int i = nframes;
+//        while(i > 0) {
+//            frameDigs += 1;
+//            i /= 10;
+//        }
+//
+//        // Read points
+//        LarvaeTrajectories  trajects;
+//        trajects.resize(nframes);
+//        for(unsigned ifr = 0; ifr < nframes; ++ifr) {
+//            string siframe = std::to_string(ifr);
+//            FileNode frame = fs[string("frame").append(string(frameDigs - siframe.length(), '0')).append(siframe)];
+//            NamedLarvaePoints& nlpts = trajects[ifr];
+//            //frame["coordinates"][0] >> nlpts;
+//            nlpts.resize(pointNames.size());
+//            for(unsigned ipt = 0; ipt < nlpts.size(); ++ipt)
+//                frame["coordinates"][0][ipt]>>nlpts[ipt];
+//        }
+//
+//        _dlcTrack.initialize(std::move(pointNames), std::move(trajects));
+//    }
+//}
+
+bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
 {
     if(rawVals.empty() || rawVals.cols % (nlarvae * _larvaPtCols)) {  // nlarvae * (x, y, likelihood)
         fprintf(stderr, "ERROR loadTrajects: Invalid size of rawVals\n");

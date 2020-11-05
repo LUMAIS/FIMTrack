@@ -14,12 +14,24 @@
 
 namespace dlc {
 
+using std::string;
+using std::vector;
+using cv::Point;
+
+//! \brief Import video into frame images
+//! \param vidName  - videofile path
+//! \param outpDir  - output directory
+//! \param frameBaseName  - base name of the outputting frames
+//! \param format  - format of the output images: "png", "tiff"
+//! \return The video is successfully imported
+bool importVideo(const string& vidName, const string& outpDir, const string& frameBaseName="frame", const string& format="png");
+
 struct Larva {
-    using Points = std::vector<cv::Point>;
+    using Points = std::vector<Point>;
     using Id = unsigned;
 
     Id id;
-    cv::Point  center;  //!< Center point
+    Point  center;  //!< Center point
     Points  points;  //!< Filtered larva points
     //LarvaPoints  hull;  //!< Convex hull
 
@@ -28,14 +40,14 @@ struct Larva {
     void clear()
     {
         id = 0;
-        center = cv::Point();
+        center = Point();
         points.clear();
     }
 };
-using Larvae = std::vector<Larva>;
-using LarvaeTrajects = std::vector<Larvae>;
+using Larvae = vector<Larva>;
+using LarvaeTrajects = vector<Larvae>;
 
-cv::Point toPoint(const cv::Scalar& sv);
+Point toPoint(const cv::Scalar& sv);
 
 struct MatchParams {
     float  rLarvaStdMax;  //!< max ratio of the Standard Deviation of the larva center on matching, ~ 1..3
@@ -53,7 +65,7 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
 //! \param stddev  - standard deviation of the points
 //! \param larvae  - ordered larvae to be matched
 //! \param mp  - parameters for the larvae matching
-unsigned matchedLarva(const cv::Point& center, const cv::Point& stddev, const Larvae& larvae, const MatchParams& mp);
+unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp);
 
 class Tracker {
     constexpr static  unsigned  _larvaPtCols = 3;  //!< The number of columns (fields) in each larva point
@@ -80,12 +92,12 @@ public:
     //! \brief Load larvae trajectories
     //! \param filename  - hdf5 file name, containing larvae trajectories
     //! \return Whether the file is loaded successfully
-    bool loadHDF5(const std::string& filename);
+    bool loadHDF5(const string& filename);
 
     //! \brief Load larvae trajectories
     //! \param filename  - csv file name, containing larvae trajectories
     //! \return Whether the file is loaded successfully
-    bool loadCSV(const std::string& filename);
+    bool loadCSV(const string& filename);
 
 //    void initialize(PointNames&& names, LarvaeTrajectories&& trajects)
 //    {

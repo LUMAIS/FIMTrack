@@ -133,12 +133,56 @@ MainGUI::~MainGUI()
 
 void MainGUI::on_btnLoad_clicked()
 {
-    QStringList fileNames = QFileDialog::getOpenFileNames(this, tr("Open Image Files"), "", QString::fromStdString(StringConstats::fileFormats));
+    QStringList fileNames = QFileDialog::getOpenFileNames(this, tr("Open Images"), "", QString::fromStdString(StringConstats::fileFormats));
     if(!fileNames.isEmpty())
     {
         QCollator col;
         col.setNumericMode(true); // THIS is important. This makes sure that numbers are sorted in a human natural way!
         col.setCaseSensitivity(Qt::CaseInsensitive);
+        std::sort(fileNames.begin(), fileNames.end(), [&](const QString& a, const QString& b) {
+            return col.compare(a, b) < 0;
+        });
+        this->_fileNames = fileNames;
+        this->updateTreeViewer();
+        this->setupBaseGUIElements(true);
+        this->showImage(this->_fileNames.first());
+    }
+}
+
+void MainGUI::on_btnImport_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Import Video"), "", tr("Video (*.mp4 *.avi *.xvid)"));
+    if(!fileName.isEmpty()) {
+        QFileInfo finf(fileName);
+        QDir wdir = finf.dir();  // Working directory
+        const QString name = finf.completeBaseName();
+        bool err = false;
+        if(wdir.exists(name)) {
+            const int  ret = QMessageBox::warning(this, tr("File import warning")
+                , tr(("The video conversion directory already exist: " + name
+                    + ".\nWould you like to overwrite it's content or cancel the import (and load those images manually)?\n").toStdString().c_str())
+                , QMessageBox::Yes | QMessageBox::No);
+            if(ret == QMessageBox::No)
+                return;
+            if(wdir.cd(name)) {
+                if(wdir.removeRecursively()) {
+                } else err = true;
+            } else err = true;
+        } else if(!wdir.mkdir(name))
+            err = true;
+        if(err) {
+            QMessageBox::critical(this, tr("File import error")
+                , tr(("A subdirectory can not be processed: " + name + ". The video import is failed.").toStdString().c_str()));
+            return;
+        }
+        wdir.cd(name);
+        QCollator col;
+        col.setNumericMode(true); // THIS is important. This makes sure that numbers are sorted in a human natural way!
+        col.setCaseSensitivity(Qt::CaseInsensitive);
+        dlc::importVideo(fileName.toStdString(), wdir.path().toStdString(), name.toStdString());  // Format: "png", "tiff"
+
+        QStringList fileNames;
+
         std::sort(fileNames.begin(), fileNames.end(), [&](const QString& a, const QString& b) {
             return col.compare(a, b) < 0;
         });
@@ -331,7 +375,6 @@ void MainGUI::on_btnTrack_clicked()
         this->ui->spinBox_minSizeThresh->setEnabled(false);
         this->ui->progressBar->setEnabled(true);
         this->ui->treeView->setEnabled(false);
-        this->ui->btnLoadDlcTrack->setEnabled(false);
         this->ui->cbAutoThresholds->setEnabled(false);
 
         std::vector<std::vector<std::string> > multiImgPaths;
@@ -356,6 +399,7 @@ void MainGUI::on_btnTrack_clicked()
         emit stopTrackingSignal();
         
         this->ui->btnTrack->setEnabled(false);
+        this->ui->btnLoadDlcTrack->setEnabled(false);
     }
 }
 
@@ -390,7 +434,6 @@ void MainGUI::setupBaseGUIElements(bool enable)
     this->ui->progressBar->setEnabled(enable);
     this->ui->progressBar->setValue(0);
 
-    this->ui->btnLoadDlcTrack->setEnabled(enable);
     this->ui->cbAutoThresholds->setEnabled(enable && !this->_dlcTrackFile.isEmpty());
 }
 
@@ -683,52 +726,18 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
     QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("DLC Tracking (*.h5 *.csv)"));  // "DLC JSON (*.json)"
     if(!fileName.isEmpty()) {
         QFileInfo finf(fileName);
-        QString ext = finf.completeSuffix();  // ext = "csv"
+        QString ext = finf.suffix();  // ext = "csv"
         bool loaded = ext == "csv" ? _dlcTrack.loadCSV(fileName.toStdString()) : _dlcTrack.loadHDF5(fileName.toStdString());
         if(!loaded) {
             ui->cbAutoThresholds->setChecked(false);
             ui->cbAutoThresholds->setEnabled(false);
             // ::warning
-            QMessageBox:: critical(this, tr("File loading error"), tr("File loading failed. Please, check the file format."));
+            QMessageBox::critical(this, tr("File loading error"), tr("File loading failed. Please, check the file format."));
         } else {
             _dlcTrackFile = fileName;
             ui->cbAutoThresholds->setEnabled(!_dlcTrackFile.isEmpty());
             //ui->cbAutoThresholds->setChecked(false);
         }
-//        FileStorage fs = FileStorage(_dlcTrackFile.toStdString(), FileStorage::READ, StringConstats::textFileCoding);
-//        if (fs.isOpened()) {
-//            _dlcTrack.clear();
-//
-//            _dlcTrack.loadHDF5();
-//            FileNode meta = fs["metadata"];
-//            // Read point names
-//            PointNames pointNames;
-//            meta["all_joints_names"] >> pointNames;
-//            // Read the number of frames
-//            int nframes;
-//            meta["nframes"] >> nframes;
-//            unsigned char frameDigs = 0;  // The number of digits in nframes to consider '0' padding
-//            int i = nframes;
-//            while(i > 0) {
-//                frameDigs += 1;
-//                i /= 10;
-//            }
-//
-//            // Read points
-//            LarvaeTrajectories  trajects;
-//            trajects.resize(nframes);
-//            for(unsigned ifr = 0; ifr < nframes; ++ifr) {
-//                string siframe = std::to_string(ifr);
-//                FileNode frame = fs[string("frame").append(string(frameDigs - siframe.length(), '0')).append(siframe)];
-//                NamedLarvaePoints& nlpts = trajects[ifr];
-//                //frame["coordinates"][0] >> nlpts;
-//                nlpts.resize(pointNames.size());
-//                for(unsigned ipt = 0; ipt < nlpts.size(); ++ipt)
-//                    frame["coordinates"][0][ipt]>>nlpts[ipt];
-//            }
-//
-//            _dlcTrack.initialize(std::move(pointNames), std::move(trajects));
-//        }
     }
 }
 

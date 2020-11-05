@@ -99,6 +99,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="btnImport">
+          <property name="text">
+           <string>Import Job</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="btnDelete">
           <property name="text">
            <string>Delete Job</string>

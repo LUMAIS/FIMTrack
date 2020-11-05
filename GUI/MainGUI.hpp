@@ -83,6 +83,7 @@ signals:
     
 private slots:
     void on_btnLoad_clicked();   
+    void on_btnImport_clicked();
     void on_btnReset_clicked();
     void on_btnTrack_clicked();
     void on_btnPreview_clicked();
@@ -106,9 +107,7 @@ private slots:
     void showMessage(QString msg);
 
     void on_btnLoadDlcTrack_clicked();
-
     void on_cbDlcTrack_stateChanged(int state);
-
     void on_cbAutoThresholds_stateChanged(int arg1);
 
 private:

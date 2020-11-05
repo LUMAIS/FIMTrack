@@ -55,6 +55,7 @@ macx {
             -lopencv_imgproc \
             -lopencv_imgcodecs \
 			-lopencv_calib3d \
+			-lopencv_videoio \
 			-lhdf5_cpp \
 			-lhdf5_serial
 #			-lopencv_hdf
@@ -64,7 +65,7 @@ macx {
 
 unix {
 
-	QMAKE_CXXFLAGS += -std=c++11 -Weffc++ -pedantic -Wno-unknown-pragmas
+	QMAKE_CXXFLAGS += -std=c++14 -Weffc++ -pedantic -Wno-unknown-pragmas
 
 	INCLUDEPATH += /usr/include/opencv4 /usr/include/hdf5/serial
 
@@ -73,6 +74,7 @@ unix {
             -lopencv_imgproc \
             -lopencv_imgcodecs \
 			-lopencv_calib3d \
+			-lopencv_videoio \
 			-lhdf5_cpp \
 			-lhdf5_serial
 #			-lopencv_hdf
