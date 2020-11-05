@@ -351,36 +351,40 @@ cv::Point toPoint(const cv::Scalar& sv)
     return Point(round(sv[0]), round(sv[1]));
 }
 
-unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp)
+unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
 {
     cv::Scalar mean, stddev;
     cv::meanStdDev(contour, mean, stddev);
     return matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp);
 }
 
-unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp)
+unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
 {
     if(larvae.empty()) {
-        printf("matchedLarva: empty\n");
+        //printf("matchedLarva: empty\n");
         return 0;
     }
     const Larva  *res = nullptr;  // Closest larva
     double  dmin = std::numeric_limits<double>::max();
-    for(const auto& lv: larvae) {
-        double dist = cv::norm(lv.center - center);
-        if(dist < dmin) {
-            dmin = dist;
-            res = &lv;
-        }
-    }
     // 1..3 * stddev
     const double  dmax = mp.rLarvaStdMax * cv::norm(stddev);  // Maximal allowed distance beween the centers
-    if(dmin > dmax) {
-        printf("WARNING matchedLarva: candidate id_dlc = %u is omitted: dmin = %f > dmax = %f\n", res->id, dmin, dmax);
-        return 0;
+    if(idHint && idHint <= larvae.size() && cv::norm(larvae[idHint - 1].center - center) <= dmax) {
+        res = &larvae[idHint - 1];
+    } else {
+        for(const auto& lv: larvae) {
+            double dist = cv::norm(lv.center - center);
+            if(dist < dmin) {
+                dmin = dist;
+                res = &lv;
+            }
+        }
+        if(dmin > dmax) {
+            printf("WARNING matchedLarva: candidate #%u is omitted: dmin = %f > dmax = %f\n", res->id, dmin, dmax);
+            return 0;
+        }
     }
 
-    printf("matchedLarva: id: %u\n", res->id);
+    //printf("matchedLarva: %u\n", res->id);
     return res->id;
 }
 

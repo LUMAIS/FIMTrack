@@ -57,15 +57,17 @@ struct MatchParams {
 //! \brief Evaluate id >= 1 of the matched larva if any, otherwise return 0
 //! \param contour  - contour to be matched
 //! \param larvae  - ordered larvae to be matched
+//! \param idHint  - hinted id for the fast matching, 0 means disabled
 //! \param mp  - parameters for the larvae matching
-unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp);
+unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp, unsigned idHint=0);
 
 //! \brief Evaluate id >= 1 of the matched larva if any, otherwise return 0
 //! \param center  - center point
 //! \param stddev  - standard deviation of the points
 //! \param larvae  - ordered larvae to be matched
+//! \param idHint  - hinted id for the fast matching, 0 means disabled
 //! \param mp  - parameters for the larvae matching
-unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp);
+unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint=0);
 
 class Tracker {
     constexpr static  unsigned  _larvaPtCols = 3;  //!< The number of columns (fields) in each larva point

@@ -141,9 +141,10 @@ namespace Calc
      * @param polygon  - larvae polygon from FIMTrack
      * @param dlcLarvae  - DLC tacking larvae, containing contours
      * @param mp  - parameters for the larvae matching
+     * @param idHint  - hinted id for the fast matching, 0 means disabled
      * @return id of the DLC-tracked larva or 0 if current conrour does not correspond to any DLC-tracked one
      */
-    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp);
+    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp, unsigned idHint=0);
 
     /**
     * @brief calcPoligonArea

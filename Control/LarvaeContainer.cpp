@@ -1439,7 +1439,8 @@ void LarvaeContainer::updateLarvaIdDlc(const int index,
                                       QPolygonF const& paintPolygon)
 {
     unsigned idDlc = time < this->mDlcTrack.size()
-                     ? Calc::calcIdDlc(paintPolygon, this->mDlcTrack.larvae(time), this->mDlcTrack.matchParams())
+                     ? Calc::calcIdDlc(paintPolygon, this->mDlcTrack.larvae(time), this->mDlcTrack.matchParams()
+                        , time ? this->mLarvae[index].parameters[time - 1].idDlc : 0)
                      : 0;
     this->mLarvae[index].parameters[time].idDlc    = idDlc;
 }
@@ -1680,7 +1681,8 @@ void LarvaeContainer::insertRawLarva(const uint larvaID,
         
         // Evaluate id_dlc for the inserting larva
         this->mLarvae[larvaIndex].values.idDlc          = timePoint < mDlcTrack.size()
-            ? dlc::matchedLarva(rawLarva.getContour(), mDlcTrack.larvae(timePoint), mDlcTrack.matchParams()) : 0;
+            ? dlc::matchedLarva(rawLarva.getContour(), mDlcTrack.larvae(timePoint), mDlcTrack.matchParams(), this->mLarvae[larvaIndex].values.idDlc)
+            : 0;
 
         this->mLarvae[larvaIndex].values.spine          = spine;
         this->mLarvae[larvaIndex].values.momentum       = rawLarva.getMomentum();

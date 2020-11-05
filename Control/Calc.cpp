@@ -239,7 +239,7 @@ namespace Calc
         return ((angle * M_PI) / 180.0);
     }
 
-    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp)
+    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp, unsigned idHint)
     {
         dlc::Larva::Points  pol;
         pol.reserve(polygon.size());
@@ -247,40 +247,6 @@ namespace Calc
         for(const auto& qpt: polygon)
             pol.emplace_back(qpt.x(), qpt.y());
         return dlc::matchedLarva(pol, dlcLarvae, mp);
-
-//        cv::Scalar mean, stddev;
-//        cv::meanStdDev(pol, mean, stddev);
-//        //std::cout << "Mean: " << mean[0] << "   StdDev: " << stddev[0] << std::endl;
-//
-////        cv:Point2d  sum{0, 0};
-////        for(const auto& qpt: polygon) {
-////            sum.x += qpt.x();
-////            sum.y += qpt.y();
-////        }
-////        cv:Point2f  center{sum.x / polygon.size(), sum.y / polygon.size()};
-
-//        return dlc::matchedLarva(mean, stddev, dlcLarvae);
-
-//        cv::Mat mean_;
-//        cv::reduce(points, mean_, 01, CV_REDUCE_AVG);
-//        // convert from Mat to Point - there may be even a simpler conversion,
-//        // but I do not know about it.
-//        cv::Point2f mean(mean_.at<float>(0,0), mean_.at<float>(0,1));
-
-//        // Discard the contours which are not segmented properly:
-//        if M["m00"] != 0:
-//            cX = int(M["m10"] / M["m00"])
-//            cY = int(M["m01"] / M["m00"])
-//        else:
-//            cX, cY = 0, 0
-
-//        # calculate moments for each contour
-//        M = cv2.moments(c)
-//        # calculate x,y coordinate of center
-//        cX = int(M["m10"] / M["m00"])
-//        cY = int(M["m01"] / M["m00"])
-
-        return 0;
     }
 
     double calcPolygonArea(QPolygonF const& polygon)
