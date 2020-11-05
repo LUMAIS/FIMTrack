@@ -191,7 +191,6 @@ public:
          * @brief isInLandmark
          */
         std::map<std::string, double>     bearinAngle;
-        
     } values;
     
     // Parameters:

@@ -52,13 +52,14 @@ bool importVideo(const string& vidName, const string& outpDir, const string& fra
             break;
         string frname = std::to_string(i);
         if(frname.size() < digs)
-            frname = string(digs - frname.size(), '0');
-        frname = frameBaseName + "-" + frname + "." + format;
+            frname = string(digs - frname.size(), '0') + frname;
+        frname = outpDir + '/' + frameBaseName + '-' + frname + '.' + format;
         if(!cv::imwrite(frname, frame)) {
             fprintf(stderr, "ERROR importVideo: can not save the output image: %s\n", frname.c_str());
             return false;
         }
     }
+    printf("importVideo: %s imported as %s images to the dir: %s\n", vidName.c_str(), format.c_str(), outpDir.c_str());
     return true;
 }
 
@@ -197,7 +198,7 @@ bool Tracker::loadCSV(const string& filename)
         vals.clear();
         // First column contains the frame id
         getline(sln, val, ',');
-        const auto nfr = std::stol(val);
+        const size_t nfr = std::stoul(val);
         // Adjust frame counter
         while(iframe < nfr) {
             lsvs.push_back(Vals(rowVals, val_nan));
@@ -216,7 +217,7 @@ bool Tracker::loadCSV(const string& filename)
             vals.push_back(val_nan);
         lsvs.push_back(vals);
         if(rowVals != vals.size()) {
-            fprintf(stderr, "ERROR loadCSV: Inconsistent size of rows for #%d (nfr: %d): %d != %d\n", iframe, nfr, vals.size(), rowVals);
+            fprintf(stderr, "ERROR loadCSV: Inconsistent size of rows for #%ul (nfr: %ul): %ul != %ul\n", iframe, nfr, vals.size(), rowVals);
             return false;
         }
         ++iframe;
@@ -308,10 +309,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
     const unsigned  larvaCols = rawVals.cols / nlarvae;
     const unsigned  lvPtsMin = _matchParams.rLarvaPtsMin * (larvaCols / _larvaPtCols);  // Min larva points to accept the larva
     Larva  lv;
-    Larva::Id  uid = 0;
     for(int i = 0; i < rawVals.rows; ++i) {
         Larvae  larvae;
         const ValT* rvRow = rawVals.ptr<ValT>(i);
+        Larva::Id  uid = 0;
         for(int j = 0; j < rawVals.cols; j += _larvaPtCols) {
             // Look-ahead reading of larva
             if(j % larvaCols == 0) {
@@ -334,10 +335,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         _trajects.push_back(larvae);
     }
 
-    printf("loadTrajects: larvaCols: %d, lvPtsMin: %d, _trajects: %d\n", larvaCols, lvPtsMin, _trajects.size());
+    printf("loadTrajects: larvaCols: %u, lvPtsMin: %u, _trajects: %ul\n", larvaCols, lvPtsMin, _trajects.size());
     if(!_trajects.empty()) {
         const Larva&  lv = _trajects[0][0];
-        printf("loadTrajects: center[0][0] #%d: %d, %d\n", lv.id, lv.center.x, lv.center.y);
+        printf("loadTrajects: center[0][0] #%u: %d, %d\n", lv.id, lv.center.x, lv.center.y);
     }
     return true;
 }
@@ -359,8 +360,10 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
 
 unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp)
 {
-    if(larvae.empty())
+    if(larvae.empty()) {
+        printf("matchedLarva: empty\n");
         return 0;
+    }
     const Larva  *res = nullptr;  // Closest larva
     double  dmin = std::numeric_limits<double>::max();
     for(const auto& lv: larvae) {
@@ -373,10 +376,11 @@ unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& la
     // 1..3 * stddev
     const double  dmax = mp.rLarvaStdMax * cv::norm(stddev);  // Maximal allowed distance beween the centers
     if(dmin > dmax) {
-        printf("WARNING matchedLarva: candidate id_dlc = %d is omitted: dmin = %f > dmax = %f\n", res->id, dmin, dmax);
+        printf("WARNING matchedLarva: candidate id_dlc = %u is omitted: dmin = %f > dmax = %f\n", res->id, dmin, dmax);
         return 0;
     }
 
+    printf("matchedLarva: id: %u\n", res->id);
     return res->id;
 }
 

@@ -156,17 +156,20 @@ void MainGUI::on_btnImport_clicked()
         QFileInfo finf(fileName);
         QDir wdir = finf.dir();  // Working directory
         const QString name = finf.completeBaseName();
+        bool import = true;  // Import the video or load the alredy existing images
         bool err = false;
         if(wdir.exists(name)) {
             const int  ret = QMessageBox::warning(this, tr("File import warning")
                 , tr(("The video conversion directory already exist: " + name
-                    + ".\nWould you like to overwrite it's content or cancel the import (and load those images manually)?\n").toStdString().c_str())
-                , QMessageBox::Yes | QMessageBox::No);
-            if(ret == QMessageBox::No)
-                return;
+                    + ".\nWould you like to overwrite it's content or cancel the import and load those images?\n").toStdString().c_str())
+                , QMessageBox::Yes | QMessageBox::Cancel);
             if(wdir.cd(name)) {
-                if(wdir.removeRecursively()) {
-                } else err = true;
+                if(ret == QMessageBox::Yes) {
+                    if(!wdir.removeRecursively())
+                        err = true;
+                    if(!wdir.cdUp() || !wdir.mkdir(name))
+                        err = true;
+                } else import = false;
             } else err = true;
         } else if(!wdir.mkdir(name))
             err = true;
@@ -175,17 +178,17 @@ void MainGUI::on_btnImport_clicked()
                 , tr(("A subdirectory can not be processed: " + name + ". The video import is failed.").toStdString().c_str()));
             return;
         }
-        wdir.cd(name);
-        QCollator col;
-        col.setNumericMode(true); // THIS is important. This makes sure that numbers are sorted in a human natural way!
-        col.setCaseSensitivity(Qt::CaseInsensitive);
-        dlc::importVideo(fileName.toStdString(), wdir.path().toStdString(), name.toStdString());  // Format: "png", "tiff"
+        if(import) {
+            wdir.cd(name);
+            QCollator col;
+            col.setNumericMode(true); // THIS is important. This makes sure that numbers are sorted in a human natural way!
+            col.setCaseSensitivity(Qt::CaseInsensitive);
+            dlc::importVideo(fileName.toStdString(), wdir.path().toStdString(), name.toStdString());  // Format: "png", "tiff"
+        }
 
-        QStringList fileNames;
-
-        std::sort(fileNames.begin(), fileNames.end(), [&](const QString& a, const QString& b) {
-            return col.compare(a, b) < 0;
-        });
+        QStringList fileNames = wdir.entryList(QDir::Files, QDir::Name);
+        for(auto& path: fileNames)
+            path = wdir.path() + '/' + path;
         this->_fileNames = fileNames;
         this->updateTreeViewer();
         this->setupBaseGUIElements(true);
@@ -434,7 +437,7 @@ void MainGUI::setupBaseGUIElements(bool enable)
     this->ui->progressBar->setEnabled(enable);
     this->ui->progressBar->setValue(0);
 
-    this->ui->cbAutoThresholds->setEnabled(enable && !this->_dlcTrackFile.isEmpty());
+    this->ui->cbAutoThresholds->setEnabled(enable && !this->ui->lb_DlcFile->text().isEmpty());
 }
 
 void MainGUI::on_btnPreview_clicked()
@@ -470,7 +473,7 @@ void MainGUI::trackingDoneSlot()
     try
     {
         this->_fileNames.clear();
-        this->_dlcTrackFile.clear();
+        this->ui->lb_DlcFile->text().clear();
         this->ui->btnTrack->setText(QString("Track"));
         this->ui->btnTrack->setEnabled(true);
         this->ui->btnPreview->setEnabled(true);
@@ -483,7 +486,7 @@ void MainGUI::trackingDoneSlot()
         this->ui->treeView->setEnabled(true);
         this->ui->progressBar->setEnabled(false);
         this->ui->btnLoadDlcTrack->setEnabled(true);
-        this->ui->cbAutoThresholds->setEnabled(!this->_dlcTrackFile.isEmpty());
+        this->ui->cbAutoThresholds->setEnabled(!this->ui->lb_DlcFile->text().isEmpty());
     }
     catch(...)
     {
@@ -518,8 +521,8 @@ void MainGUI::updateTreeViewer()
         QTreeWidgetItem *item = new QTreeWidgetItem(this->ui->treeView);
         item->setText(0, QString("Job ").append(QString::number(this->_jobs.size())));
         QString  jobInf(fInfo.absolutePath());
-        if(!_dlcTrackFile.isEmpty())
-            jobInf += QString("; DLC: ").append(_dlcTrackFile.section('/', -1));  // Fetch file name without directories
+        //if(!ui->lb_DlcFile->text().isEmpty())
+        //    jobInf += QString("; ").append(ui->lb_DlcFile->text().section('/', -1));  // Fetch file name without directories
         item->setText(1, jobInf);
         this->ui->treeView->addTopLevelItem(item);
         
@@ -545,7 +548,7 @@ void MainGUI::resetListViewe()
 {
     this->_scene->clearScene();
     this->_fileNames.clear();
-    this->_dlcTrackFile.clear();
+    this->ui->lb_DlcFile->text().clear();
     this->ui->treeView->clear();
     this->_jobs.clear();
     
@@ -731,11 +734,13 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
         if(!loaded) {
             ui->cbAutoThresholds->setChecked(false);
             ui->cbAutoThresholds->setEnabled(false);
+            ui->lb_DlcFile->setText("");
             // ::warning
             QMessageBox::critical(this, tr("File loading error"), tr("File loading failed. Please, check the file format."));
         } else {
-            _dlcTrackFile = fileName;
-            ui->cbAutoThresholds->setEnabled(!_dlcTrackFile.isEmpty());
+            //_dlcTrackFile = fileName;
+            ui->lb_DlcFile->setText("DLC file: " + fileName.section('/', -1));  // Fetch file name without directories
+            ui->cbAutoThresholds->setEnabled(!ui->lb_DlcFile->text().isEmpty());
             //ui->cbAutoThresholds->setChecked(false);
         }
     }
@@ -749,7 +754,7 @@ void MainGUI::on_cbDlcTrack_stateChanged(int state)
         _dlcTrack.active = false;
     } else {
         ui->btnLoadDlcTrack->setEnabled(true);
-        ui->cbAutoThresholds->setEnabled(!_dlcTrackFile.isEmpty());
+        ui->cbAutoThresholds->setEnabled(!ui->lb_DlcFile->text().isEmpty());
         _dlcTrack.active = true;
     }
 }

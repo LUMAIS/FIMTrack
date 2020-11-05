@@ -33,7 +33,7 @@
 
 #include "LarvaeContainer.hpp"
 
-LarvaeContainer::LarvaeContainer(dlc::Tracker& dlcTrack, QObject *parent) :
+LarvaeContainer::LarvaeContainer(const dlc::Tracker& dlcTrack, QObject *parent) :
     QObject(parent),
     mDlcTrack(dlcTrack)
 {
@@ -1664,6 +1664,7 @@ void LarvaeContainer::insertRawLarva(const uint larvaID,
                                      const RawLarva &rawLarva)
 {
     size_t larvaIndex;
+
     if(this->getIndexOfLarva(larvaID, larvaIndex))
     {
         FIMTypes::spine_t spine;
@@ -1677,6 +1678,10 @@ void LarvaeContainer::insertRawLarva(const uint larvaID,
         spine = (invertParameters) ? this->reverseVec(rawLarva.getDiscreteSpine())  : rawLarva.getDiscreteSpine();
         radii = (invertParameters) ? this->reverseVec(rawLarva.getLarvalRadii())    : rawLarva.getLarvalRadii();
         
+        // Evaluate id_dlc for the inserting larva
+        this->mLarvae[larvaIndex].values.idDlc          = timePoint < mDlcTrack.size()
+            ? dlc::matchedLarva(rawLarva.getContour(), mDlcTrack.larvae(timePoint), mDlcTrack.matchParams()) : 0;
+
         this->mLarvae[larvaIndex].values.spine          = spine;
         this->mLarvae[larvaIndex].values.momentum       = rawLarva.getMomentum();
         this->mLarvae[larvaIndex].values.area           = rawLarva.getArea();

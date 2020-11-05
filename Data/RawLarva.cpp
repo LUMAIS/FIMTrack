@@ -40,7 +40,6 @@ using std::vector;
 
 RawLarva::RawLarva(const contour_t& _contour, Mat const & img)
 {
-
     //Q_UNUSED(img);
     contour=_contour;
 
@@ -55,13 +54,13 @@ RawLarva::RawLarva(const contour_t& _contour, Mat const & img)
     //fprintf(stderr, "Brightness ROI (%d, %d; %d, %d) content:\n", brect.x, brect.y, brect.width, brect.height);
     for(int y = brect.y; y < yEnd; ++y) {
         for(int x = brect.x; x < xEnd; ++x) {
-            //fprintf(stderr, "%d ", img.at<uchar>(y, x));
+            //fprintf(stderr, "%u ", img.at<uchar>(y, x));
             if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
                 brightness += img.at<uchar>(y, x);
         }
         //fprintf(stderr, "\n");
     }
-    //fprintf(stderr, "area: %f, brightness: %d\n", area, brightness);
+    //fprintf(stderr, "area: %f, brightness: %u\n", area, brightness);
     //assert(0 && "area validation vailed");
 
     // number of discrete spine points

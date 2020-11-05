@@ -34,7 +34,7 @@
 #include "ResultsViewer.hpp"
 #include "ui_ResultsViewer.h"
 
-ResultsViewer::ResultsViewer(dlc::Tracker& dlcTrack, QWidget *parent) :
+ResultsViewer::ResultsViewer(const dlc::Tracker& dlcTrack, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::ResultsViewer),
     mLarvaeContainer(dlcTrack)

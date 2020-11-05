@@ -63,7 +63,7 @@ class ResultsViewer : public QDialog
     Q_OBJECT
     
 public:
-    explicit ResultsViewer(dlc::Tracker& dlcTrack, QWidget *parent = 0);
+    explicit ResultsViewer(const dlc::Tracker& dlcTrack, QWidget *parent = 0);
     ~ResultsViewer();
     
     LarvaeContainer* getLarvaeContainer() {return &this->mLarvaeContainer;}

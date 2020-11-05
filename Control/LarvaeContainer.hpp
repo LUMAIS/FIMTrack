@@ -54,7 +54,7 @@ class LarvaeContainer : public QObject
     
 private:
     std::vector < Larva >                       mLarvae;
-    dlc::Tracker&                               mDlcTrack;
+    const dlc::Tracker&                         mDlcTrack;
     double                                      mMaxSpineLength;
     int                                         mMaximumNumberOfTimePoints;
     
@@ -124,7 +124,7 @@ private:
     void calcBearingAngle(const QString &name, const QLineF &l);
     
 public:
-    explicit LarvaeContainer(dlc::Tracker& dlcTrack, QObject *parent = 0);
+    explicit LarvaeContainer(const dlc::Tracker& dlcTrack, QObject *parent = 0);
     
     Larva* createDefaultLarva(const uint timeStep);
     
