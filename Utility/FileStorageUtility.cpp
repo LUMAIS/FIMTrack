@@ -180,6 +180,8 @@ cv::FileStorage& operator<<(cv::FileStorage& fs, Larva const& larva)
         fs << "values" << "[";
         Larva::ValuesType values = it->second;
         fs << "{";
+        fs << "id_dlc" << static_cast<int>(values.idDlc);
+        fs << "autoT" << static_cast<int>(values.idDlc);
         fs << "area" << values.area;
         fs << "brightness" << static_cast<int>(values.brightness);
         fs << "spine" << values.spine;

@@ -109,6 +109,8 @@ private slots:
 
     void on_cbDlcTrack_stateChanged(int state);
 
+    void on_cbAutoThresholds_stateChanged(int arg1);
+
 private:
     QString                     _dlcTrackFile;
     dlc::Tracker                _dlcTrack;

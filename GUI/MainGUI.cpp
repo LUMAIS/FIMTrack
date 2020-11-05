@@ -331,7 +331,9 @@ void MainGUI::on_btnTrack_clicked()
         this->ui->spinBox_minSizeThresh->setEnabled(false);
         this->ui->progressBar->setEnabled(true);
         this->ui->treeView->setEnabled(false);
-        
+        this->ui->btnLoadDlcTrack->setEnabled(false);
+        this->ui->cbAutoThresholds->setEnabled(false);
+
         std::vector<std::vector<std::string> > multiImgPaths;
         std::vector<std::string> strList;
         for(int i = 0; i < this->ui->treeView->topLevelItemCount(); i++)
@@ -387,6 +389,9 @@ void MainGUI::setupBaseGUIElements(bool enable)
     
     this->ui->progressBar->setEnabled(enable);
     this->ui->progressBar->setValue(0);
+
+    this->ui->btnLoadDlcTrack->setEnabled(enable);
+    this->ui->cbAutoThresholds->setEnabled(enable && !this->_dlcTrackFile.isEmpty());
 }
 
 void MainGUI::on_btnPreview_clicked()
@@ -434,6 +439,8 @@ void MainGUI::trackingDoneSlot()
         this->ui->spinBox_minSizeThresh->setEnabled(true);
         this->ui->treeView->setEnabled(true);
         this->ui->progressBar->setEnabled(false);
+        this->ui->btnLoadDlcTrack->setEnabled(true);
+        this->ui->cbAutoThresholds->setEnabled(!this->_dlcTrackFile.isEmpty());
     }
     catch(...)
     {
@@ -679,9 +686,15 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
         QString ext = finf.completeSuffix();  // ext = "csv"
         bool loaded = ext == "csv" ? _dlcTrack.loadCSV(fileName.toStdString()) : _dlcTrack.loadHDF5(fileName.toStdString());
         if(!loaded) {
+            ui->cbAutoThresholds->setChecked(false);
+            ui->cbAutoThresholds->setEnabled(false);
             // ::warning
             QMessageBox:: critical(this, tr("File loading error"), tr("File loading failed. Please, check the file format."));
-        } else _dlcTrackFile = fileName;
+        } else {
+            _dlcTrackFile = fileName;
+            ui->cbAutoThresholds->setEnabled(!_dlcTrackFile.isEmpty());
+            //ui->cbAutoThresholds->setChecked(false);
+        }
 //        FileStorage fs = FileStorage(_dlcTrackFile.toStdString(), FileStorage::READ, StringConstats::textFileCoding);
 //        if (fs.isOpened()) {
 //            _dlcTrack.clear();
@@ -723,9 +736,24 @@ void MainGUI::on_cbDlcTrack_stateChanged(int state)
 {
     if(state == Qt::Unchecked) {
         ui->btnLoadDlcTrack->setEnabled(false);
+        ui->cbAutoThresholds->setEnabled(false);
         _dlcTrack.active = false;
     } else {
         ui->btnLoadDlcTrack->setEnabled(true);
+        ui->cbAutoThresholds->setEnabled(!_dlcTrackFile.isEmpty());
         _dlcTrack.active = true;
+    }
+}
+
+void MainGUI::on_cbAutoThresholds_stateChanged(int state)
+{
+    if(state == Qt::Unchecked) {
+        ui->spinBox_graythresh->setEnabled(true);
+        ui->spinBox_maxSizeThresh->setEnabled(true);
+        ui->spinBox_minSizeThresh->setEnabled(true);
+    } else {
+        ui->spinBox_graythresh->setEnabled(false);
+        ui->spinBox_maxSizeThresh->setEnabled(false);
+        ui->spinBox_minSizeThresh->setEnabled(false);
     }
 }
