@@ -1649,6 +1649,10 @@ void LarvaeContainer::updateMovementDirection(const int index, const uint time)
 
 bool LarvaeContainer::getIndexOfLarva(const uint id, size_t& index) const
 {
+    if(id < this->mLarvae.size() && this->mLarvae[id].getID() == id) {
+        index = id;
+        return true;
+    }
     for(unsigned int i = 0; i < this->mLarvae.size(); ++i)
     {
         if(this->mLarvae.at(i).getID() == id)
