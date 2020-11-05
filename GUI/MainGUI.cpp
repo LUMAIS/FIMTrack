@@ -366,6 +366,8 @@ void MainGUI::on_btnTrack_clicked()
         
         msg.append(" MaxSizeThresh:");
         msg.append(QString::number(this->ui->spinBox_maxSizeThresh->value()));
+
+        msg.append(QString(" Automatic thresholds: ") + (ui->cbAutoThresholds->isEnabled() ? "yes" : "no"));
         emit logMessage(msg,DEBUG);
         
         this->ui->btnTrack->setText(QString("Stop"));

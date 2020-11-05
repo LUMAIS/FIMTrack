@@ -41,13 +41,13 @@ namespace StringConstats
 
 namespace GeneralParameters
 {
-    int      iGrayThreshold                                         = 40;
+    int      iGrayThreshold                                         = 12;  // 40
     int      defaultGrayThreshold                                   = iGrayThreshold;
     
-    int      iMinLarvaeArea                                         = 200;
+    int      iMinLarvaeArea                                         = 600;  // 200
     int      defaultMinLarvaeArea                                   = iMinLarvaeArea;
     
-    int      iMaxLarvaeArea                                         = 500;
+    int      iMaxLarvaeArea                                         = 1600;  // 500
     int      deaultMaxLarvaeArea                                    = iMaxLarvaeArea;
     
     bool     bShowTrackingProgress                                  = true;
@@ -103,7 +103,7 @@ namespace LarvaeExtractionParameters
     bool     bUseDefault                                            = true;
     bool     defaultUseDefault                                      = bUseDefault;
     
-    int      iNumerOfSpinePoints                                    = 5;
+    int      iNumerOfSpinePoints                                    = 5;  // 5 [9]
     int      defaultiNumerOfSpinePoints                             = iNumerOfSpinePoints;
 
     namespace IPANContourCurvatureParameters
