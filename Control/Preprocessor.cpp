@@ -31,6 +31,8 @@
  *                                                                           *
  *****************************************************************************/
 
+#include <array>
+#include <algorithm>
 #include "Preprocessor.hpp"
 
 using namespace cv;
@@ -128,10 +130,77 @@ void Preprocessor::borderRestriction(contours_t &contours, const Mat& img, bool 
     contours = validContours;
 }
 
+void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh,
+                                      const Mat& img, const dlc::Larvae& larvae)
+{
+    if(larvae.empty())
+        return;
+    dlc::Larva::Points  hull;
+    //hull.reserve(larvae[0].points.size());
+    vector<float>  areas;
+    areas.reserve(larvae.size());
+    std::array<unsigned, 255>  larvaHist = {0};
+    std::array<unsigned, 255>  bgHist = {0};
+    for(const auto& lv: larvae) {
+        // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
+        cv::convexHull(lv.points, hull);
+        areas.push_back(cv::contourArea(hull));
+        hull.clear();
+
+        // Evaluate brightness
+        const Rect  brect = boundingRect(hull);
+        const int  xEnd = brect.x + brect.width;
+        const int  yEnd = brect.y + brect.height;
+        //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
+        for(int y = brect.y; y < yEnd; ++y) {
+            for(int x = brect.x; x < xEnd; ++x) {
+                //fprintf(stderr, "%u ", img.at<uchar>(y, x));
+                uint8_t  brightness = img.at<uint8_t>(y, x);
+                if(pointPolygonTest(hull, Point2f(x, y), false) >= 0)
+                    ++larvaHist[brightness];  // brightness
+                else ++bgHist[brightness];
+            }
+            //fprintf(stderr, "\n");
+        }
+        //fprintf(stderr, "area: %f, brightness: %u\n", area, brightness);
+    }
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(areas, mean, stddev);
+    std::sort(areas.begin(), areas.end());
+    //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
+    minSizeThresh = max<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]);  // 0.56 area ~= 0.75 perimiter
+    maxSizeThresh = min<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]);  // 2.5 area ~= 1.58 perimiter
+    printf("%s> minSizeThresh: %d (meanSdev: %u, areaMaxLim: %u)\n", __FUNCTION__, minSizeThresh, mean[0] - 4.f * stddev[0], 0.56f * areas[0]);
+    printf("%s> maxSizeThresh: %d (meanSdev: %u, areaMinLim: %u)\n", __FUNCTION__, maxSizeThresh, mean[0] + 5.f * stddev[0], 2.5f * areas[areas.size() - 1]);
+
+    // Calculate the number of values in foreground
+    int32_t count = 0;
+    for(auto num: larvaHist)
+        count += num;
+    // Cut foreground to <96% of the brightest values considering that the hull includes some background
+    count *= 0.04f;
+    unsigned  ifgmin = 0;
+    while(count > 0)
+        count -= larvaHist[ifgmin++];
+    // Evaluate the number of background values that are smaller that foreground ones
+    count = 0;
+    unsigned  ibg = 0;
+    for(;ibg < ifgmin; ++ibg)
+        count += bgHist[ibg];
+    // Take <=96% of the background values that are lower than foreground ones
+    count *= 0.96;
+    ibg = 0;
+    while(count > 0)
+        count -= bgHist[ibg++];
+    // Take average index of background an foreground to identify the thresholding brightness
+    grayThresh = min<int>((ibg + ifgmin) / 2, round(ifgmin * 0.86f));  // 0.75 .. 0.95
+    printf("%s> grayThresh: %d (avg: %u, xFgMin: %u)\n", __FUNCTION__, grayThresh, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.86f)));
+}
+
 void Preprocessor::preprocessPreview(const Mat &src,
                                      contours_t &acceptedContoursDst,
                                      contours_t &biggerContoursDst,
-                                     const int gThresh,
+                                     const int grayThresh,
                                      const int minSizeThresh,
                                      const int maxSizeThresh)
 {
@@ -142,7 +211,7 @@ void Preprocessor::preprocessPreview(const Mat &src,
     contours_t contours;
     
     // perform gray threshold
-    Preprocessor::graythresh(src,gThresh,tmpImg);
+    Preprocessor::graythresh(src,grayThresh,tmpImg);
     
     // calculate the contours
     Preprocessor::calcContours(tmpImg,contours);
@@ -154,7 +223,7 @@ void Preprocessor::preprocessPreview(const Mat &src,
 void Preprocessor::preprocessTracking(Mat const & src,
                                       contours_t & acceptedContoursDst,
                                       contours_t & biggerContoursDst,
-                                      int const gThresh,
+                                      int const grayThresh,
                                       int const minSizeThresh,
                                       int const maxSizeThresh,
                                       Backgroundsubtractor const & bs,
@@ -163,13 +232,13 @@ void Preprocessor::preprocessTracking(Mat const & src,
     // generate a scratch image
     Mat tmpImg = Mat::zeros(src.size(), src.type());
     
-    bs.subtractViaThresh(src,gThresh,tmpImg);
+    bs.subtractViaThresh(src,grayThresh,tmpImg);
     
     // generate a contours container scratch
     contours_t contours;
     
     // perform gray threshold
-    Preprocessor::graythresh(tmpImg,gThresh,tmpImg);
+    Preprocessor::graythresh(tmpImg,grayThresh,tmpImg);
     
     // calculate the contours
     Preprocessor::calcContours(tmpImg,contours);

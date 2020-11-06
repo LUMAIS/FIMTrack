@@ -163,12 +163,13 @@ private:
      * 3. contours are calculated using the Preprocessor
      * 3. current raw larvae are extracted from the contours and stored in the curRawLarvae member variable
      *
+     * @param timePoint current timepoint
      * @param img current image
      * @param bs a Backgoundsubtractor object containing the background image
      * @param previewImage is a pointer to the preview image of the main gui to draw the contours
      * @param checkRoiBorders indicates if RegionOfInterest was selected (thus contours must be fully within this region to be valid)
      */
-    void extractRawLarvae(const cv::Mat &img, Backgroundsubtractor const & bs, cv::Mat *previewImg, bool checkRoiBorders);
+    void extractRawLarvae(unsigned timePoint, const cv::Mat &img, Backgroundsubtractor const & bs, cv::Mat *previewImg, bool checkRoiBorders);
     
     /**
      * @brief assignByHungarian assigns larvae by minimizing overall cost (or maximizing overall utility) using the hungarian algorithm.

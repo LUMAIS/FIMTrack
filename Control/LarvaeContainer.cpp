@@ -35,7 +35,7 @@
 
 LarvaeContainer::LarvaeContainer(const dlc::Tracker& dlcTrack, QObject *parent) :
     QObject(parent),
-    mDlcTrack(dlcTrack)
+    dlcTrack(dlcTrack)
 {
     this->mMaxSpineLength = 0.0;
 }
@@ -1438,8 +1438,8 @@ void LarvaeContainer::updateLarvaIdDlc(const int index,
                                       const uint time,
                                       QPolygonF const& paintPolygon)
 {
-    unsigned idDlc = time < this->mDlcTrack.size()
-                     ? Calc::calcIdDlc(paintPolygon, this->mDlcTrack.larvae(time), this->mDlcTrack.matchParams()
+    unsigned idDlc = this->dlcTrack.active && time < this->dlcTrack.size()
+                     ? Calc::calcIdDlc(paintPolygon, this->dlcTrack.larvae(time), this->dlcTrack.matchParams()
                         , time ? this->mLarvae[index].parameters[time - 1].idDlc : 0)
                      : 0;
     this->mLarvae[index].parameters[time].idDlc    = idDlc;
@@ -1684,8 +1684,8 @@ void LarvaeContainer::insertRawLarva(const uint larvaID,
         radii = (invertParameters) ? this->reverseVec(rawLarva.getLarvalRadii())    : rawLarva.getLarvalRadii();
         
         // Evaluate id_dlc for the inserting larva
-        this->mLarvae[larvaIndex].values.idDlc          = timePoint < mDlcTrack.size()
-            ? dlc::matchedLarva(rawLarva.getContour(), mDlcTrack.larvae(timePoint), mDlcTrack.matchParams(), this->mLarvae[larvaIndex].values.idDlc)
+        this->mLarvae[larvaIndex].values.idDlc          = dlcTrack.active && timePoint < dlcTrack.size()
+            ? dlc::matchedLarva(rawLarva.getContour(), dlcTrack.larvae(timePoint), dlcTrack.matchParams(), this->mLarvae[larvaIndex].values.idDlc)
             : 0;
 
         this->mLarvae[larvaIndex].values.spine          = spine;

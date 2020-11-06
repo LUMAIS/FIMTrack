@@ -111,7 +111,6 @@ private slots:
     void on_cbAutoThresholds_stateChanged(int arg1);
 
 private:
-    //QString                     _dlcTrackFile;
     dlc::Tracker                _dlcTrack;
 
     Ui::MainGUI*                ui;
@@ -132,7 +131,7 @@ private:
     
     QString                     _configurationFile;
 
-    void showImage(QString path);
+    void showImage(unsigned timePoint, QString path);
     void readParameters();
     
     void setupBaseGUIElements(bool enable);

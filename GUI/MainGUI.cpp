@@ -145,13 +145,15 @@ void MainGUI::on_btnLoad_clicked()
         this->_fileNames = fileNames;
         this->updateTreeViewer();
         this->setupBaseGUIElements(true);
-        this->showImage(this->_fileNames.first());
+        //fprintf(stderr, "Showing the preview...\n");
+        this->showImage(0, this->_fileNames.first());
+        //fprintf(stderr, "Preview showed...\n");
     }
 }
 
 void MainGUI::on_btnImport_clicked()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Import Video"), "", tr("Video (*.mp4 *.avi *.xvid)"));
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Import Video"), "", tr("*.mp4 *.avi *.xvid"));
     if(!fileName.isEmpty()) {
         QFileInfo finf(fileName);
         QDir wdir = finf.dir();  // Working directory
@@ -192,12 +194,14 @@ void MainGUI::on_btnImport_clicked()
         this->_fileNames = fileNames;
         this->updateTreeViewer();
         this->setupBaseGUIElements(true);
-        this->showImage(this->_fileNames.first());
+        this->showImage(0, this->_fileNames.first());
     }
 }
 
-void MainGUI::showImage(QString path)
+void MainGUI::showImage(unsigned timePoint, QString path)
 {
+    if(path.isEmpty())
+        return;
     this->readParameters();
     
     // get the selected image fileNames list
@@ -223,7 +227,23 @@ void MainGUI::showImage(QString path)
             }
         }
     }
-    
+
+    // Evaluate automatic thresholds
+    if(_dlcTrack.active && _dlcTrack.autoThreshold && timePoint < _dlcTrack.size()) {
+        printf("%s calling estimateThresholds...> timePoint: %u, DLC trajs size: %lu; current thresholds(gray: %d, minLarvArea: %d, minLarvArea: %d)\n"
+            , __FUNCTION__, timePoint, _dlcTrack.size()
+            , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
+        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea,
+                                         img, _dlcTrack.larvae(timePoint));
+        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, minLarvArea: %d)\n"
+            , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
+
+        // Update UI values
+        this->ui->spinBox_graythresh->setValue(GeneralParameters::iGrayThreshold);
+        this->ui->spinBox_minSizeThresh->setValue(GeneralParameters::iMinLarvaeArea);
+        this->ui->spinBox_maxSizeThresh->setValue(GeneralParameters::iMaxLarvaeArea);
+    }
+
     // generate a contours container
     contours_t contours;
     contours_t collidedContours;
@@ -235,7 +255,6 @@ void MainGUI::showImage(QString path)
                                     GeneralParameters::iGrayThreshold, 
                                     GeneralParameters::iMinLarvaeArea, 
                                     GeneralParameters::iMaxLarvaeArea);
-    
     const cv::Mat grayImg = img.clone();
 
     // set the color to BGR to draw contours and contour sizes into the image
@@ -444,12 +463,15 @@ void MainGUI::setupBaseGUIElements(bool enable)
 
 void MainGUI::on_btnPreview_clicked()
 {
-    if(this->ui->treeView->currentItem()->parent())
+    auto  tvItem = this->ui->treeView->currentItem();
+    if(tvItem && tvItem->parent())
     {
-        QString path = this->ui->treeView->currentItem()->parent()->text(this->ui->treeView->currentColumn());
+        QString path = tvItem->parent()->text(this->ui->treeView->currentColumn());
         path.append("/");
-        path.append(this->ui->treeView->currentItem()->text(this->ui->treeView->currentColumn()));
-        this->showImage(path);
+        path.append(tvItem->text(this->ui->treeView->currentColumn()));
+        QModelIndex index = ui->treeView->currentIndex();
+        // First item is the root, containing the base path, rather than the target list of file names
+        this->showImage(index.row() - 1, path);
     }
 }
 
@@ -721,7 +743,9 @@ void MainGUI::on_treeView_itemSelectionChanged()
             QString path = item->parent()->text(1);
             path.append("/");
             path.append(item->text(1));
-            this->showImage(path);
+            QModelIndex index = ui->treeView->currentIndex();
+            // First item is the root, containing the base path, rather than the target list of file names
+            this->showImage(index.row() - 1, path);
         }
     }
 }
@@ -742,8 +766,8 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
         } else {
             //_dlcTrackFile = fileName;
             ui->lb_DlcFile->setText("DLC file: " + fileName.section('/', -1));  // Fetch file name without directories
-            ui->cbAutoThresholds->setEnabled(!ui->lb_DlcFile->text().isEmpty());
-            //ui->cbAutoThresholds->setChecked(false);
+            ui->cbAutoThresholds->setEnabled(true);
+            ui->cbAutoThresholds->setChecked(true);
         }
     }
 }
@@ -751,12 +775,13 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
 void MainGUI::on_cbDlcTrack_stateChanged(int state)
 {
     if(state == Qt::Unchecked) {
-        ui->btnLoadDlcTrack->setEnabled(false);
+        ui->cbAutoThresholds->setChecked(false);
         ui->cbAutoThresholds->setEnabled(false);
+        ui->btnLoadDlcTrack->setEnabled(false);
         _dlcTrack.active = false;
     } else {
-        ui->btnLoadDlcTrack->setEnabled(true);
         ui->cbAutoThresholds->setEnabled(!ui->lb_DlcFile->text().isEmpty());
+        ui->btnLoadDlcTrack->setEnabled(true);
         _dlcTrack.active = true;
     }
 }
@@ -767,9 +792,11 @@ void MainGUI::on_cbAutoThresholds_stateChanged(int state)
         ui->spinBox_graythresh->setEnabled(true);
         ui->spinBox_maxSizeThresh->setEnabled(true);
         ui->spinBox_minSizeThresh->setEnabled(true);
+        _dlcTrack.autoThreshold = false;
     } else {
         ui->spinBox_graythresh->setEnabled(false);
         ui->spinBox_maxSizeThresh->setEnabled(false);
         ui->spinBox_minSizeThresh->setEnabled(false);
+        _dlcTrack.autoThreshold = true;
     }
 }

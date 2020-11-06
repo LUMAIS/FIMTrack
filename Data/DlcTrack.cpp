@@ -36,7 +36,7 @@ bool importVideo(const string& vidName, const string& outpDir, const string& fra
 {
     cv::VideoCapture cap(vidName);
     if(!cap.isOpened()) {
-        fprintf(stderr, "ERROR importVideo: video file can not be opened: %s\n", vidName.c_str());
+        fprintf(stderr, "ERROR %s> video file can not be opened: %s\n", __FUNCTION__, vidName.c_str());
         return false;
     }
     Mat frame;
@@ -55,11 +55,11 @@ bool importVideo(const string& vidName, const string& outpDir, const string& fra
             frname = string(digs - frname.size(), '0') + frname;
         frname = outpDir + '/' + frameBaseName + '-' + frname + '.' + format;
         if(!cv::imwrite(frname, frame)) {
-            fprintf(stderr, "ERROR importVideo: can not save the output image: %s\n", frname.c_str());
+            fprintf(stderr, "ERROR %s> can not save the output image: %s\n", __FUNCTION__, frname.c_str());
             return false;
         }
     }
-    printf("importVideo: %s imported as %s images to the dir: %s\n", vidName.c_str(), format.c_str(), outpDir.c_str());
+    printf("%s> %s imported as '%s' images to the dir: %s\n", __FUNCTION__, vidName.c_str(), format.c_str(), outpDir.c_str());
     return true;
 }
 
@@ -89,7 +89,7 @@ bool Tracker::loadHDF5(const string& filename)
     string  hdrVal;
     hdr.read(StrType(PredType::C_S1), hdrVal);
     if (hdrVal.empty()) {
-        fprintf(stderr, "ERROR loadHDF5: Larvae dataset does not descibe larvae in the attributes\n");
+        fprintf(stderr, "ERROR %s> Larvae dataset does not descibe larvae in the attributes\n", __FUNCTION__);
         return false;
     }
     // Check the number of "\nVlarva1\n"-like values to indentify the numbe of tracking larvae
@@ -120,20 +120,20 @@ bool Tracker::loadHDF5(const string& filename)
 //    cv::Ptr<cv::hdf::HDF5> h5io = cv::hdf::open(filename);
 //    const string  dsname("/df_with_missing/table");
 //    if(!h5io->hlexists(dsname)) {
-//        fprintf(stderr, "ERROR loadHDF5: Larvae dataset does not exist in the HDF5 file\n");
+//        fprintf(stderr, "ERROR %s> Larvae dataset does not exist in the HDF5 file\n", __FUNCTION__);
 //        h5io->close();
 //        return false;
 //    }
 //    cv::String attr_str_name = "/df_with_missing/table/values_block_0_kind";
 //    if (!h5io->atexists(attr_str_name)) {
-//        fprintf(stderr, "ERROR loadHDF5: Larvae dataset does not descibe larvae in the attributes\n");
+//        fprintf(stderr, "ERROR %s> Larvae dataset does not descibe larvae in the attributes\n", __FUNCTION__);
 //        h5io->close();
 //        return false;
 //    }
 //    cv::String hdr;  // Table headers annotation
 //    // Note: OpenCV HDF5 works only with the root attributes and datasets representable as Mat
 //    h5io->atread(&hdr, attr_str_name);  // The attribute MUST exist, otherwise CV_Error() is called. Use atexists() to check if it exists beforehand.
-////    printf("Opening the HDF5 dataset...\n");
+////    printf("%s> Opening the HDF5 dataset...\n", __FUNCTION__);
 //    // Check the number of "\nVlarva1\n"-like values to indentify the numbe of tracking larvae
 //    unsigned nlvs = 0;  // The number of larvaes
 //    size_t  pos = 0;  // Char index in the header
@@ -161,7 +161,7 @@ bool Tracker::loadCSV(const string& filename)
 {
     std::ifstream finp(filename);
     if(!finp.is_open()) {
-        fprintf(stderr, "ERROR loadCSV: Larvae CSV file can not be opened\n");
+        fprintf(stderr, "ERROR %s> Larvae CSV file can not be opened\n", __FUNCTION__);
         return false;
     }
     using val_t = float;
@@ -217,14 +217,15 @@ bool Tracker::loadCSV(const string& filename)
             vals.push_back(val_nan);
         lsvs.push_back(vals);
         if(rowVals != vals.size()) {
-            fprintf(stderr, "ERROR loadCSV: Inconsistent size of rows for #%ul (nfr: %ul): %ul != %ul\n", iframe, nfr, vals.size(), rowVals);
+            fprintf(stderr, "ERROR %s> Inconsistent size of rows for #%ul (nfr: %ul): %ul != %ul\n"
+                , __FUNCTION__, iframe, nfr, vals.size(), rowVals);
             return false;
         }
         ++iframe;
     }
 
     if(lsvs.empty()) {
-        fprintf(stderr, "ERROR loadCSV: Larvae trajectories are not specified\n");
+        fprintf(stderr, "ERROR %s> Larvae trajectories are not specified\n", __FUNCTION__);
         return false;
     }
 
@@ -280,7 +281,7 @@ bool Tracker::loadCSV(const string& filename)
 bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
 {
     if(rawVals.empty() || rawVals.cols % (nlarvae * _larvaPtCols)) {  // nlarvae * (x, y, likelihood)
-        fprintf(stderr, "ERROR loadTrajects: Invalid size of rawVals\n");
+        fprintf(stderr, "ERROR %s> Invalid size of rawVals\n", __FUNCTION__);
         return false;
     }
 
@@ -288,7 +289,7 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
     uchar depth = type & CV_MAT_DEPTH_MASK;
     uchar chans = 1 + (type >> CV_CN_SHIFT);
     if(chans != 1) {
-        fprintf(stderr, "ERROR loadTrajects: Unexpected number of channels (dimensions) in rawVals\n");
+        fprintf(stderr, "ERROR %s> Unexpected number of channels (dimensions) in rawVals\n", __FUNCTION__);
         return false;
     }
 
@@ -296,11 +297,11 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
     case CV_32F:
         break;  // OK
     case CV_64F:
-        fprintf(stderr, "ERROR loadTrajects: float32 values are expected in rawVals instead of CV_64F\n");
+        fprintf(stderr, "ERROR %s> float32 values are expected in rawVals instead of CV_64F\n", __FUNCTION__);
         return false;
         break;
     default:
-        fprintf(stderr, "ERROR loadTrajects: Unexpected type of values in rawVals\n");
+        fprintf(stderr, "ERROR %s> Unexpected type of values in rawVals\n", __FUNCTION__);
         return false;
     }
 
@@ -335,10 +336,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         _trajects.push_back(larvae);
     }
 
-    printf("loadTrajects: larvaCols: %u, lvPtsMin: %u, _trajects: %ul\n", larvaCols, lvPtsMin, _trajects.size());
+    printf("%s> larvaCols: %u, lvPtsMin: %u, _trajects: %ul\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size());
     if(!_trajects.empty()) {
         const Larva&  lv = _trajects[0][0];
-        printf("loadTrajects: center[0][0] #%u: %d, %d\n", lv.id, lv.center.x, lv.center.y);
+        printf("%s> #%u.center[t=0]: %d, %d\n", __FUNCTION__, lv.id, lv.center.x, lv.center.y);
     }
     return true;
 }
@@ -361,7 +362,7 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
 unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
 {
     if(larvae.empty()) {
-        //printf("matchedLarva: empty\n");
+        //printf("%s> empty\n", __FUNCTION__);
         return 0;
     }
     const Larva  *res = nullptr;  // Closest larva
@@ -379,12 +380,12 @@ unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& la
             }
         }
         if(dmin > dmax) {
-            printf("WARNING matchedLarva: candidate #%u is omitted: dmin = %f > dmax = %f\n", res->id, dmin, dmax);
+            printf("WARNING %s> candidate #%u is omitted: dmin = %f > dmax = %f\n", __FUNCTION__, res->id, dmin, dmax);
             return 0;
         }
     }
 
-    //printf("matchedLarva: %u\n", res->id);
+    //printf("%s> %u\n", __FUNCTION__, res->id);
     return res->id;
 }
 

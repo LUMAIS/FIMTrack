@@ -85,7 +85,7 @@ namespace Algorithms
             // nothing to do
         }
         else 
-            fprintf(stderr,"%s: unknown mode. Mode was set to HUNGARIAN_MODE_MINIMIZE_COST !\n", __FUNCTION__);
+            fprintf(stderr,"ERROR %s: unknown mode. Mode was set to HUNGARIAN_MODE_MINIMIZE_COST !\n", __FUNCTION__);
     }
     
     void Hungarian::padMatrix(double padValue)

@@ -50,11 +50,22 @@ class Preprocessor
 {
 public:  
     /**
+     * @brief estimateThresholds estimates thresholds based on DLC-tracked larvae
+     * @param grayThresh  - grey threshold
+     * @param minSizeThresh  - min expected size of a larva
+     * @param maxSizeThresh  - max expected size of a larva
+     * @param imgGray  - gray-scale image
+     * @param larvae  - DLC-tracked larvae
+     */
+    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh,
+                                          const cv::Mat& imgGray, const dlc::Larvae& larvae);
+
+    /**
      * @brief preprocessPreview calculates all contours necessary for preview. The image (src) is thresholded and the resultant binary
      * image is used to calculate the contours. All contours < minSizeThresh or > maxSizeThresh are removed.
      * @param src the input image
      * @param contoursDst the resultant contours
-     * @param gThresh the gray value threshold
+     * @param grayThresh the gray value threshold
      * @param minSizeThresh the minimal size for contour size thresholding
      * @param maxSizeThresh the maximal size for contour size thresholding
      * @return all contours of sufficient size
@@ -62,14 +73,14 @@ public:
     static void preprocessPreview(cv::Mat const & src,
                                   contours_t & acceptedContoursDst,
                                   contours_t & biggerContoursDst,
-                                  int const gThresh,
+                                  int const grayThresh,
                                   int const minSizeThresh,
                                   int const maxSizeThresh);
     
     static void preprocessTracking(cv::Mat const & src,
                                    contours_t & acceptedContoursDst,
                                    contours_t & biggerContoursDst,
-                                   int const gThresh,
+                                   int const grayThresh,
                                    int const minSizeThresh,
                                    int const maxSizeThresh,
                                    Backgroundsubtractor const & bs,

@@ -51,7 +51,7 @@ RawLarva::RawLarva(const contour_t& _contour, Mat const & img)
     const int  xEnd = brect.x + brect.width;
     const int  yEnd = brect.y + brect.height;
     brightness = 0;
-    //fprintf(stderr, "Brightness ROI (%d, %d; %d, %d) content:\n", brect.x, brect.y, brect.width, brect.height);
+    //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
     for(int y = brect.y; y < yEnd; ++y) {
         for(int x = brect.x; x < xEnd; ++x) {
             //fprintf(stderr, "%u ", img.at<uchar>(y, x));

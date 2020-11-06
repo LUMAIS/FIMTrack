@@ -207,7 +207,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
             cvtColor(img, previewImg, cv::COLOR_GRAY2BGR);
         }
 
-        extractRawLarvae(img, bs, &previewImg, false);
+        extractRawLarvae(timePoint, img, bs, &previewImg, false);
 
         // assignment task
         switch (LarvaeExtractionParameters::AssignmentParameters::eAssignmentMethod)
@@ -298,8 +298,15 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
     return timePoint;
 }
 
-void Tracker::extractRawLarvae(Mat const& img, Backgroundsubtractor const& bs, Mat* previewImg, bool checkRoiBorders)
+void Tracker::extractRawLarvae(unsigned timePoint, Mat const& img, Backgroundsubtractor const& bs, Mat* previewImg, bool checkRoiBorders)
 {
+    if(_larvaeContainer.dlcTrack.active && _larvaeContainer.dlcTrack.autoThreshold && timePoint < _larvaeContainer.dlcTrack.size()) {
+        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea,
+                                         img, _larvaeContainer.dlcTrack.larvae(timePoint));
+        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, minLarvArea: %d)\n"
+            , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
+    }
+
     contours_t contours;
     contours_t collidedContours;
     Preprocessor::preprocessTracking(img,
