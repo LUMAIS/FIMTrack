@@ -145,7 +145,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
         cv::convexHull(lv.points, hull);
         areas.push_back(cv::contourArea(hull));
-        hull.clear();
 
         // Evaluate brightness
         const Rect  brect = boundingRect(hull);
@@ -155,30 +154,35 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         for(int y = brect.y; y < yEnd; ++y) {
             for(int x = brect.x; x < xEnd; ++x) {
                 //fprintf(stderr, "%u ", img.at<uchar>(y, x));
-                uint8_t  brightness = img.at<uint8_t>(y, x);
+                uint8_t  bval = img.at<uint8_t>(y, x);
                 if(pointPolygonTest(hull, Point2f(x, y), false) >= 0)
-                    ++larvaHist[brightness];  // brightness
-                else ++bgHist[brightness];
+                    ++larvaHist[bval];  // brightness
+                else ++bgHist[bval];
             }
             //fprintf(stderr, "\n");
         }
-        //fprintf(stderr, "area: %f, brightness: %u\n", area, brightness);
+        //fprintf(stderr, "area: %f, brightness: %u\n", area, bval);
+
+        hull.clear();
     }
     cv::Scalar mean, stddev;
     cv::meanStdDev(areas, mean, stddev);
     std::sort(areas.begin(), areas.end());
     //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
     minSizeThresh = max<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]);  // 0.56 area ~= 0.75 perimiter
-    maxSizeThresh = min<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]);  // 2.5 area ~= 1.58 perimiter
-    printf("%s> minSizeThresh: %d (meanSdev: %u, areaMaxLim: %u)\n", __FUNCTION__, minSizeThresh, mean[0] - 4.f * stddev[0], 0.56f * areas[0]);
-    printf("%s> maxSizeThresh: %d (meanSdev: %u, areaMinLim: %u)\n", __FUNCTION__, maxSizeThresh, mean[0] + 5.f * stddev[0], 2.5f * areas[areas.size() - 1]);
+    maxSizeThresh = max<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]);  // 2.5 area ~= 1.58 perimiter
+    //printf("%s> minSizeThresh: %d (meanSdev: %d, areaMinLim: %u)\n", __FUNCTION__
+    //    , minSizeThresh, int(mean[0] - 4.f * stddev[0]), unsigned(0.56f * areas[0]));
+    //printf("%s> maxSizeThresh: %d (meanSdev: %d, areaMaxLim: %u)\n", __FUNCTION__
+    //    , maxSizeThresh, int(mean[0] + 5.f * stddev[0]), unsigned(2.5f * areas[areas.size() - 1]));
 
     // Calculate the number of values in foreground
     int32_t count = 0;
     for(auto num: larvaHist)
         count += num;
-    // Cut foreground to <96% of the brightest values considering that the hull includes some background
-    count *= 0.04f;
+    // Cut foreground to ~<96% of the brightest values considering that the hull includes some background.
+    // Note that the convex hull cause inclusion of some background pixel in the larva area.
+    count *= 0.06f;  // 0.04 .. 0.08
     unsigned  ifgmin = 0;
     while(count > 0)
         count -= larvaHist[ifgmin++];
@@ -188,13 +192,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     for(;ibg < ifgmin; ++ibg)
         count += bgHist[ibg];
     // Take <=96% of the background values that are lower than foreground ones
-    count *= 0.96;
-    ibg = 0;
-    while(count > 0)
-        count -= bgHist[ibg++];
+    count *= 0.96f;
+    for(ibg = 0; count > 0 && ibg < ifgmin; ++ibg)
+        count -= bgHist[ibg];
     // Take average index of background an foreground to identify the thresholding brightness
-    grayThresh = min<int>((ibg + ifgmin) / 2, round(ifgmin * 0.86f));  // 0.75 .. 0.95
-    printf("%s> grayThresh: %d (avg: %u, xFgMin: %u)\n", __FUNCTION__, grayThresh, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.86f)));
+    //grayThresh = max<int>((ibg + ifgmin) / 2, round(ifgmin * 0.96f));  // 0.75 .. 0.96
+    grayThresh = round((((ibg + ifgmin) * 0.5f) + ifgmin * 0.96f) * 0.5f);  // 0.75 .. 0.96
+    //printf("%s> grayThresh: %d (avg: %u, xFgMin: %u)\n", __FUNCTION__, grayThresh, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.96f)));
 }
 
 void Preprocessor::preprocessPreview(const Mat &src,

@@ -303,7 +303,7 @@ void Tracker::extractRawLarvae(unsigned timePoint, Mat const& img, Backgroundsub
     if(_larvaeContainer.dlcTrack.active && _larvaeContainer.dlcTrack.autoThreshold && timePoint < _larvaeContainer.dlcTrack.size()) {
         Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea,
                                          img, _larvaeContainer.dlcTrack.larvae(timePoint));
-        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, minLarvArea: %d)\n"
+        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
             , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
     }
 

@@ -200,10 +200,8 @@ void MainGUI::on_btnImport_clicked()
 
 void MainGUI::showImage(unsigned timePoint, QString path)
 {
-    if(path.isEmpty())
-        return;
     this->readParameters();
-    
+
     // get the selected image fileNames list
     cv::Mat img = cv::imread(QtOpencvCore::qstr2str(path), IMREAD_GRAYSCALE);  // 0
 
@@ -230,12 +228,12 @@ void MainGUI::showImage(unsigned timePoint, QString path)
 
     // Evaluate automatic thresholds
     if(_dlcTrack.active && _dlcTrack.autoThreshold && timePoint < _dlcTrack.size()) {
-        printf("%s calling estimateThresholds...> timePoint: %u, DLC trajs size: %lu; current thresholds(gray: %d, minLarvArea: %d, minLarvArea: %d)\n"
-            , __FUNCTION__, timePoint, _dlcTrack.size()
-            , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
+        //printf("%s calling estimateThresholds...> timePoint: %u, DLC trajs size: %lu; current thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
+        //    , __FUNCTION__, timePoint, _dlcTrack.size()
+        //    , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
         Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea,
                                          img, _dlcTrack.larvae(timePoint));
-        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, minLarvArea: %d)\n"
+        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
             , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
 
         // Update UI values
@@ -442,12 +440,14 @@ void MainGUI::setupBaseGUIElements(bool enable)
     this->ui->btnReset->setEnabled(enable);
     this->ui->btnTrack->setEnabled(enable);
     
-    this->ui->spinBox_graythresh->setEnabled(enable);
-    this->ui->spinBox_graythresh->setValue(GeneralParameters::iGrayThreshold);
-    this->ui->spinBox_maxSizeThresh->setEnabled(enable);
-    this->ui->spinBox_maxSizeThresh->setValue(GeneralParameters::iMaxLarvaeArea);
-    this->ui->spinBox_minSizeThresh->setEnabled(enable);
-    this->ui->spinBox_minSizeThresh->setValue(GeneralParameters::iMinLarvaeArea);
+    if(!(enable && _dlcTrack.autoThreshold)) {
+        this->ui->spinBox_graythresh->setEnabled(enable);
+        this->ui->spinBox_graythresh->setValue(GeneralParameters::iGrayThreshold);
+        this->ui->spinBox_maxSizeThresh->setEnabled(enable);
+        this->ui->spinBox_maxSizeThresh->setValue(GeneralParameters::iMaxLarvaeArea);
+        this->ui->spinBox_minSizeThresh->setEnabled(enable);
+        this->ui->spinBox_minSizeThresh->setValue(GeneralParameters::iMinLarvaeArea);
+    }
     
     this->ui->checkBoxShowTrackingProgress->setEnabled(enable);
     this->ui->checkBoxShowTrackingProgress->setChecked(GeneralParameters::bShowTrackingProgress);
@@ -470,8 +470,7 @@ void MainGUI::on_btnPreview_clicked()
         path.append("/");
         path.append(tvItem->text(this->ui->treeView->currentColumn()));
         QModelIndex index = ui->treeView->currentIndex();
-        // First item is the root, containing the base path, rather than the target list of file names
-        this->showImage(index.row() - 1, path);
+        this->showImage(index.row(), path);
     }
 }
 
@@ -504,9 +503,11 @@ void MainGUI::trackingDoneSlot()
         this->ui->btnReset->setEnabled(true);
         this->ui->btnDelete->setEnabled(true);
         this->ui->btnLoad->setEnabled(true);
-        this-> ui->spinBox_graythresh->setEnabled(true);
-        this-> ui->spinBox_maxSizeThresh->setEnabled(true);
-        this->ui->spinBox_minSizeThresh->setEnabled(true);
+        if(!_dlcTrack.autoThreshold) {
+            this->ui->spinBox_graythresh->setEnabled(true);
+            this->ui->spinBox_maxSizeThresh->setEnabled(true);
+            this->ui->spinBox_minSizeThresh->setEnabled(true);
+        }
         this->ui->treeView->setEnabled(true);
         this->ui->progressBar->setEnabled(false);
         this->ui->btnLoadDlcTrack->setEnabled(true);
@@ -744,15 +745,14 @@ void MainGUI::on_treeView_itemSelectionChanged()
             path.append("/");
             path.append(item->text(1));
             QModelIndex index = ui->treeView->currentIndex();
-            // First item is the root, containing the base path, rather than the target list of file names
-            this->showImage(index.row() - 1, path);
+            this->showImage(index.row(), path);
         }
     }
 }
 
 void MainGUI::on_btnLoadDlcTrack_clicked()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("DLC Tracking (*.h5 *.csv)"));  // "DLC JSON (*.json)"
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("*.h5 *.csv"));  // "DLC JSON (*.json)"
     if(!fileName.isEmpty()) {
         QFileInfo finf(fileName);
         QString ext = finf.suffix();  // ext = "csv"

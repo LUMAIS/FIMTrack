@@ -41,13 +41,13 @@ namespace StringConstats
 
 namespace GeneralParameters
 {
-    int      iGrayThreshold                                         = 12;  // 40
+    int      iGrayThreshold                                         = 36;  // 40
     int      defaultGrayThreshold                                   = iGrayThreshold;
     
     int      iMinLarvaeArea                                         = 600;  // 200
     int      defaultMinLarvaeArea                                   = iMinLarvaeArea;
     
-    int      iMaxLarvaeArea                                         = 1600;  // 500
+    int      iMaxLarvaeArea                                         = 2500;  // 500
     int      deaultMaxLarvaeArea                                    = iMaxLarvaeArea;
     
     bool     bShowTrackingProgress                                  = true;
