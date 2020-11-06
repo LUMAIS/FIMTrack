@@ -281,8 +281,9 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
                             }
                         }
                     }
-                    ss << l.getID();
-                    ss << ":" << goText;
+                    if(l.values.idDlc)
+                        ss << l.values.idDlc << "_";
+                    ss << l.getID() << ':' << goText;
                     putText(previewImg, ss.str(), spine.at(0), cv::FONT_HERSHEY_PLAIN, 2, Scalar(255, 255, 255), 2);
                 }
             }

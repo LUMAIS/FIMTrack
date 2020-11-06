@@ -170,7 +170,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     std::sort(areas.begin(), areas.end());
     //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
     //const int  minSizeThreshLim = 0.56f * areas[0]
-    minSizeThresh = min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]);  // 0.56 area ~= 0.75 perimiter
+    minSizeThresh = max<int>(min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]), areas[0] * 0.36f);  // 0.56 area ~= 0.75 perimiter
     maxSizeThresh = max<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]);  // 2.5 area ~= 1.58 perimiter
     //printf("%s> minSizeThresh: %d (meanSdev: %d, areaMinLim: %u)\n", __FUNCTION__
     //    , minSizeThresh, int(mean[0] - 4.f * stddev[0]), unsigned(0.56f * areas[0]));

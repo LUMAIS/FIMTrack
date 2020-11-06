@@ -486,6 +486,7 @@ void TrackerSceneLarva::adjustSilhouette()
     
     this->mSilhouette->setPolygon(polySilhouette);
     
+    const QString  idDlcStr = this->mLarva->values.idDlc ? QString(this->mLarva->values.idDlc).append('_') : "";
     int goPhase;
     if(this->mLarva->getGoPhaseIndicatorAt(this->mCurrentTime, goPhase))
     {
@@ -493,24 +494,24 @@ void TrackerSceneLarva::adjustSilhouette()
             this->mDrawID->setHtml("<div style='background-color: transparent; color:rgb(" + 
                                    QString::number(this->mColor.red()) + ", " + 
                                    QString::number(this->mColor.green()) + ", " + 
-                                   QString::number(this->mColor.blue()) + ")'>" + (this->mID + QString(":stop")) + "</div>");
+                                   QString::number(this->mColor.blue()) + ")'>" + (idDlcStr + this->mID + QString(":stop")) + "</div>");
         else if(goPhase == 1)
             this->mDrawID->setHtml("<div style='background-color: transparent; color:rgb(" + 
                                    QString::number(this->mColor.red()) + ", " + 
                                    QString::number(this->mColor.green()) + ", " + 
-                                   QString::number(this->mColor.blue()) + ")'>" + (this->mID + QString(":go")) + "</div>");
+                                   QString::number(this->mColor.blue()) + ")'>" + (idDlcStr + this->mID + QString(":go")) + "</div>");
         else
             this->mDrawID->setHtml("<div style='background-color: transparent; color:rgb(" + 
                                    QString::number(this->mColor.red()) + ", " + 
                                    QString::number(this->mColor.green()) + ", " + 
-                                   QString::number(this->mColor.blue()) + ")'>" + this->mID + "</div>");
+                                   QString::number(this->mColor.blue()) + ")'>" + idDlcStr + this->mID + "</div>");
     }
     else
     {
         this->mDrawID->setHtml("<div style='background-color: transparent; color:rgb(" + 
                                QString::number(this->mColor.red()) + ", " + 
                                QString::number(this->mColor.green()) + ", " + 
-                               QString::number(this->mColor.blue()) + ")'>" + this->mID + "</div>");
+                               QString::number(this->mColor.blue()) + ")'>" + idDlcStr + this->mID + "</div>");
     }
     
     if(!this->isFirstTimestepOfLarva())

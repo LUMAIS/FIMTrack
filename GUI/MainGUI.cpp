@@ -268,10 +268,15 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         // Generate a RawLarva Object and draw raw larval informations
         RawLarva rawLarva(c, grayImg);
 
-        // draw the contour size and brightness into the image
+        // draw the larvae DLC id, contour (area) size and brightness into the image
         std::stringstream ss;
-        ss << "a" << cv::contourArea(c) << ",b" << rawLarva.getBrightness();
-        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 2.5, Scalar(255,255,0), 3);
+        if(_dlcTrack.active && timePoint < _dlcTrack.size()) {
+            const unsigned  idDlc = dlc::matchedLarva(rawLarva.getContour(), _dlcTrack.larvae(timePoint), _dlcTrack.matchParams());
+            ss << 'i' << idDlc << ',';
+        }
+        // cv::contourArea(c)
+        ss << 'a' << round(sqrt(rawLarva.getArea())) << ",b" << round(sqrt(rawLarva.getBrightness()));
+        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 2.2, Scalar(255,255,0), 2);
 
         // get the discrete spine
         vector<Point> discreteSpine = rawLarva.getDiscreteSpine();
