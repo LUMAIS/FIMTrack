@@ -169,7 +169,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     cv::meanStdDev(areas, mean, stddev);
     std::sort(areas.begin(), areas.end());
     //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
-    minSizeThresh = max<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]);  // 0.56 area ~= 0.75 perimiter
+    //const int  minSizeThreshLim = 0.56f * areas[0]
+    minSizeThresh = min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]);  // 0.56 area ~= 0.75 perimiter
     maxSizeThresh = max<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]);  // 2.5 area ~= 1.58 perimiter
     //printf("%s> minSizeThresh: %d (meanSdev: %d, areaMinLim: %u)\n", __FUNCTION__
     //    , minSizeThresh, int(mean[0] - 4.f * stddev[0]), unsigned(0.56f * areas[0]));
@@ -197,8 +198,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         count -= bgHist[ibg];
     // Take average index of background an foreground to identify the thresholding brightness
     //grayThresh = max<int>((ibg + ifgmin) / 2, round(ifgmin * 0.96f));  // 0.75 .. 0.96
-    grayThresh = round((((ibg + ifgmin) * 0.5f) + ifgmin * 0.96f) * 0.5f);  // 0.75 .. 0.96
-    //printf("%s> grayThresh: %d (avg: %u, xFgMin: %u)\n", __FUNCTION__, grayThresh, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.96f)));
+    grayThresh = max<float>((ibg + ifgmin) * 0.5f, ifgmin * 0.96f);  // 0.75 .. 0.96
+    printf("%s> grayThresh: %d (avg: %u, xFgMin: %u)\n", __FUNCTION__, grayThresh, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.96f)));
 }
 
 void Preprocessor::preprocessPreview(const Mat &src,

@@ -398,6 +398,7 @@ void MainGUI::on_btnTrack_clicked()
         this->ui->progressBar->setEnabled(true);
         this->ui->treeView->setEnabled(false);
         this->ui->cbAutoThresholds->setEnabled(false);
+        this->ui->btnLoadDlcTrack->setEnabled(false);
 
         std::vector<std::vector<std::string> > multiImgPaths;
         std::vector<std::string> strList;
@@ -512,6 +513,7 @@ void MainGUI::trackingDoneSlot()
         this->ui->progressBar->setEnabled(false);
         this->ui->btnLoadDlcTrack->setEnabled(true);
         this->ui->cbAutoThresholds->setEnabled(!this->ui->lb_DlcFile->text().isEmpty());
+        this->ui->btnLoadDlcTrack->setEnabled(true);
     }
     catch(...)
     {
