@@ -571,7 +571,8 @@ string Larva::getStrIdDlc(const unsigned int timePoint) const
 {
     std::stringstream ss;
     unsigned idDlc;
-    if(getIdDlcAt(timePoint, idDlc))
+    // Only id >= 1 are actual ids
+    if(getIdDlcAt(timePoint, idDlc) && idDlc)
     {
         ss << idDlc;
     }

@@ -272,7 +272,9 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         std::stringstream ss;
         if(_dlcTrack.active && timePoint < _dlcTrack.size()) {
             const unsigned  idDlc = dlc::matchedLarva(rawLarva.getContour(), _dlcTrack.larvae(timePoint), _dlcTrack.matchParams());
-            ss << 'i' << idDlc << ',';
+            // Consider only actual id >= 1
+            if(idDlc)
+                ss << 'i' << idDlc << ',';
         }
         // cv::contourArea(c)
         ss << 'a' << round(sqrt(rawLarva.getArea())) << ",b" << round(sqrt(rawLarva.getBrightness()));
