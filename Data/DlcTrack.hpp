@@ -54,6 +54,11 @@ struct MatchParams {
     float  rLarvaPtsMin;  //!< min ratio of the larva points to acccept the DLC-tracked larva, (0, 1]
 };
 
+struct MatchStat {
+    float  distAvg;  //!< average distance from the larva center to the DLC-tracked points
+    float  distStd;  //!< sandard deviation of the distance distance
+};
+
 //! \brief Evaluate id >= 1 of the matched larva if any, otherwise return 0
 //! \param contour  - contour to be matched
 //! \param larvae  - ordered larvae to be matched
@@ -72,6 +77,7 @@ unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& la
 class Tracker {
     constexpr static  unsigned  _larvaPtCols = 3;  //!< The number of columns (fields) in each larva point
     const MatchParams  _matchParams;
+    MatchStat   _matchStat;
     //! Tracking frames that include trajectories; ordered as by the larvae centers OpenCV contours
     LarvaeTrajects  _trajects;
 //    LarvaeTrajectories  _trajects;
@@ -90,7 +96,7 @@ public:
     //! \brief Tracker constructor
     //! \param rLarvaStdMax  - max ratio of the Standard Deviation of the larva center on matching, ~ 1..3
     //! \param rLarvaPtsMin  - min ratio of the larva points to acccept the DLC-tracked larva, (0, 1]
-    Tracker(float rLarvaStdMax=1.5, float rLarvaPtsMin=0.4): _matchParams{rLarvaStdMax, rLarvaPtsMin}, _trajects(), active(true)  {}
+    Tracker(float rLarvaStdMax=1.5, float rLarvaPtsMin=0.4): _matchParams{rLarvaStdMax, rLarvaPtsMin}, _matchStat{0}, _trajects(), active(true)  {}
 
     //! \brief Load larvae trajectories
     //! \param filename  - hdf5 file name, containing larvae trajectories
@@ -101,6 +107,9 @@ public:
     //! \param filename  - csv file name, containing larvae trajectories
     //! \return Whether the file is loaded successfully
     bool loadCSV(const string& filename);
+
+    //! \brief Clear stored data
+    void clear();
 
 //    void initialize(PointNames&& names, LarvaeTrajectories&& trajects)
 //    {
@@ -125,6 +134,7 @@ public:
     unsigned size() const  { return _trajects.size(); }
 
     const MatchParams& matchParams() const  { return _matchParams; }
+    const MatchStat& matchStat() const  { return _matchStat; }
 
 //    float rStdMax() const  { return _matchParams.rLarvaStdMax; }
 

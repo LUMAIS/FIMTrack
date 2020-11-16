@@ -54,11 +54,14 @@ public:
      * @param grayThresh  - grey threshold
      * @param minSizeThresh  - min expected size of a larva
      * @param maxSizeThresh  - max expected size of a larva
+     * @param foreground  - foreground ROI
      * @param imgGray  - gray-scale image
      * @param larvae  - DLC-tracked larvae
+     * @param matchStat  - matching statistics
      */
-    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh,
-                                          const cv::Mat& imgGray, const dlc::Larvae& larvae);
+    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Rect& foreground,
+                                          const cv::Mat& imgGray, const dlc::Larvae& larvae,
+                                          const dlc::MatchStat& matchStat);
 
     /**
      * @brief preprocessPreview calculates all contours necessary for preview. The image (src) is thresholded and the resultant binary

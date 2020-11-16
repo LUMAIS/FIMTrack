@@ -27,6 +27,7 @@
 //using std::endl;
 //using namespace dlc;
 using cv::Mat;
+using cv::norm;
 using namespace H5;
 
 
@@ -305,7 +306,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         return false;
     }
 
+    clear();
+
     // Load valid (non-nan) values that have reuqired confidance, rounding to Point<int>
+    vector<float>  distances;
     using ValT = float;
     const unsigned  larvaCols = rawVals.cols / nlarvae;
     const unsigned  lvPtsMin = _matchParams.rLarvaPtsMin * (larvaCols / _larvaPtCols);  // Min larva points to accept the larva
@@ -324,6 +328,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
                    //lv.center = Point(round(center.x), round(center.y))
                    lv.center = toPoint(cv::mean(lv.points));
                    larvae.push_back(lv);
+
+                   // Store distances from the center
+                   for(const auto& pt: lv.points)
+                       distances.push_back(norm(lv.center - pt));
                 }
                 lv.clear();
             }
@@ -335,13 +343,26 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         }
         _trajects.push_back(larvae);
     }
+    if(!distances.empty()) {
+        cv::Scalar  mean, stddev;
+        cv::meanStdDev(distances, mean, stddev);
+        _matchStat.distAvg = mean[0];
+        _matchStat.distStd = stddev[0];
+    }
 
     printf("%s> larvaCols: %u, lvPtsMin: %u, _trajects: %ul\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size());
     if(!_trajects.empty()) {
         const Larva&  lv = _trajects[0][0];
-        printf("%s> #%u.center[t=0]: %d, %d\n", __FUNCTION__, lv.id, lv.center.x, lv.center.y);
+        printf("%s> #%u.center[t=0]: %d, %d; avg global dist: %f (SD: %f)\n", __FUNCTION__
+            , lv.id, lv.center.x, lv.center.y, _matchStat.distAvg, _matchStat.distStd);
     }
     return true;
+}
+
+void Tracker::clear()
+{
+    _matchStat = {0};
+    _trajects.clear();
 }
 
 // Function definitions
@@ -368,12 +389,12 @@ unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& la
     const Larva  *res = nullptr;  // Closest larva
     double  dmin = std::numeric_limits<double>::max();
     // 1..3 * stddev
-    const double  dmax = mp.rLarvaStdMax * cv::norm(stddev);  // Maximal allowed distance beween the centers
-    if(idHint && idHint <= larvae.size() && cv::norm(larvae[idHint - 1].center - center) <= dmax) {
+    const double  dmax = mp.rLarvaStdMax * norm(stddev);  // Maximal allowed distance beween the centers
+    if(idHint && idHint <= larvae.size() && norm(larvae[idHint - 1].center - center) <= dmax) {
         res = &larvae[idHint - 1];
     } else {
         for(const auto& lv: larvae) {
-            double dist = cv::norm(lv.center - center);
+            double dist = norm(lv.center - center);
             if(dist < dmin) {
                 dmin = dist;
                 res = &lv;

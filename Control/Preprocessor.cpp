@@ -130,8 +130,8 @@ void Preprocessor::borderRestriction(contours_t &contours, const Mat& img, bool 
     contours = validContours;
 }
 
-void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh,
-                                      const Mat& img, const dlc::Larvae& larvae)
+void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Rect& foreground,
+                                      const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat)
 {
     if(larvae.empty())
         return;
@@ -141,6 +141,92 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     areas.reserve(larvae.size());
     std::array<unsigned, 255>  larvaHist = {0};
     std::array<unsigned, 255>  bgHist = {0};
+
+    // Identify an approximate foregroud ROI
+    ////const auto  lp0 = larvae[0].points[0];
+    //// Note: take width and height to 1 pixel to properly form the rect
+    Rect  fgrect = {img.cols, img.rows, 0, 0};  // 1, 1
+    for(const auto& lv: larvae)
+        for(const auto& pt: lv.points) {
+            if(pt.x < fgrect.x)
+                fgrect.x = pt.x;
+            else if(pt.x > fgrect.width)
+                fgrect.width = pt.x;
+
+            if(pt.y < fgrect.y)
+                fgrect.y = pt.y;
+            else if(pt.y > fgrect.height)
+                fgrect.height = pt.y;
+        }
+    //grabCut(InputArray img, InputOutputArray mask, Rect rect,
+    //       InputOutputArray bgdModel, InputOutputArray fgdModel,
+    //       int iterCount, int mode = GC_EVAL);
+    unsigned  grayTheshGlob = 0;
+    if(fgrect.width && fgrect.height) {
+        // Expand the foreground ROI with the statistical span
+        const int  span = matchStat.distAvg + 2 * matchStat.distStd;  // Note: we expend from the border points rather thatn from the center => *2 rather than *3
+        fgrect.x -= span;
+        if(fgrect.x < 0)
+            fgrect.x = 0;
+        fgrect.y -= span;
+        if(fgrect.y < 0)
+            fgrect.y = 0;
+        fgrect.width += span;
+        if(fgrect.x + fgrect.width >= img.cols)
+            fgrect.width = img.cols - fgrect.x;
+        fgrect.height += span;
+        if(fgrect.y + fgrect.height >= img.rows)
+            fgrect.height = img.rows - fgrect.y;
+        foreground = fgrect;
+        //printf("%s> fgrect: %d + %d, %d + %d\n", __FUNCTION__, fgrect.x, fgrect.y, fgrect.width, fgrect.height);
+
+        Mat mask = Mat::zeros(img.size(), CV_8UC1);  // resulting mask
+        Mat bgdModel, fgdModel;
+        Mat imgClr;
+        cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
+        cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT);
+        cv::compare(mask, cv::GC_PR_FGD, mask, cv::CMP_EQ);  // Retain only the foreground
+        Mat imgFg;  // Foreground image
+        img.copyTo(imgFg, mask);
+        cv::imshow("Foreground", imgFg);
+
+        // Evaluate brightness
+        const int  xEnd = fgrect.x + fgrect.width;
+        const int  yEnd = fgrect.y + fgrect.height;
+        //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
+        for(int y = fgrect.y; y < yEnd; ++y) {
+            for(int x = fgrect.x; x < xEnd; ++x) {
+                //fprintf(stderr, "%u ", img.at<uchar>(y, x));
+                uint8_t  bval = img.at<uint8_t>(y, x);
+                // Omit zero mask
+                if(bval)
+                    ++larvaHist[bval];  // brightness
+            }
+            //fprintf(stderr, "\n");
+        }
+        // Calculate the number of values in foreground
+        int32_t count = 0;
+        for(auto num: larvaHist)
+            count += num;
+        // Cut foreground to ~<70% of the brightest values considering that the hull includes some background.
+        // Note that the convex hull cause inclusion of some background pixel in the larva area.
+        count *= 0.5f;  // 0.04 .. 0.08
+        unsigned  ifgmin = 0;
+        while(count > 0)
+            count -= larvaHist[ifgmin++];
+        grayTheshGlob = ifgmin;
+        //printf("%s> grayThreshGlobal: %d\n", __FUNCTION__, ifgmin);
+        // Reser larvaHist
+        larvaHist = {0};
+    }
+
+//    let color = new cv.Scalar(0, 0, 255);
+//    let point1 = new cv.Point(rect.x, rect.y);
+//    let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+//    cv.rectangle(src, point1, point2, color);
+//    cv.imshow('canvasOutput', src);
+//    src.delete(); mask.delete(); bgdModel.delete(); fgdModel.delete();
+
     for(const auto& lv: larvae) {
         // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
         cv::convexHull(lv.points, hull);
@@ -170,8 +256,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     std::sort(areas.begin(), areas.end());
     //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
     //const int  minSizeThreshLim = 0.56f * areas[0]
-    minSizeThresh = max<int>(min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]), areas[0] * 0.36f);  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
-    maxSizeThresh = min<int>(max<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]), areas[areas.size() - 1] * 3.24f);  // 2.5 area ~= 1.58 perimiter; 3.24 a ~= 1.8 p
+    const float  expPerimMin = matchStat.distAvg - 0.36f * matchStat.distStd;  // 0.3 .. 0.4
+    minSizeThresh = (max<int>(min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]), areas[0] * 0.36f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
+    const float  expPerimMax = matchStat.distAvg + 3.8f * matchStat.distStd;  // 3.6 .. 3.8
+    maxSizeThresh = (min<int>(max<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]), areas[areas.size() - 1] * 3.24f) + expPerimMax * expPerimMax) / 2;  // 2.5 area ~= 1.58 perimiter; 3.24 a ~= 1.8 p
     //printf("%s> minSizeThresh: %d (meanSdev: %d, areaMinLim: %u)\n", __FUNCTION__
     //    , minSizeThresh, int(mean[0] - 4.f * stddev[0]), unsigned(0.56f * areas[0]));
     //printf("%s> maxSizeThresh: %d (meanSdev: %d, areaMaxLim: %u)\n", __FUNCTION__
@@ -183,7 +271,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         count += num;
     // Cut foreground to ~<96% of the brightest values considering that the hull includes some background.
     // Note that the convex hull cause inclusion of some background pixel in the larva area.
-    count *= 0.06f;  // 0.04 .. 0.08
+    count *= 0.12f;  // 0.04 .. 0.08 [0.16]
     unsigned  ifgmin = 0;
     while(count > 0)
         count -= larvaHist[ifgmin++];
@@ -192,14 +280,16 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     unsigned  ibg = 0;
     for(;ibg < ifgmin; ++ibg)
         count += bgHist[ibg];
-    // Take <=96% of the background values that are lower than foreground ones
+    // Take >=96% of the background values that are lower than foreground ones
     count *= 0.96f;
     for(ibg = 0; count > 0 && ibg < ifgmin; ++ibg)
         count -= bgHist[ibg];
     // Take average index of background an foreground to identify the thresholding brightness
     //grayThresh = max<int>((ibg + ifgmin) / 2, round(ifgmin * 0.96f));  // 0.75 .. 0.96
-    grayThresh = max<float>((ibg + ifgmin) * 0.5f, ifgmin * 0.96f);  // 0.75 .. 0.96
-    printf("%s> grayThresh: %d (avg: %u, xFgMin: %u)\n", __FUNCTION__, grayThresh, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.96f)));
+    //grayThresh = max<float>((ibg + ifgmin) * 0.5f, ifgmin * 0.96f);  // 0.75 .. 0.96
+    //grayThresh = (max(ibg, grayTheshGlob) * 3 + grayTheshGlob) / 4;
+    grayThresh = (ibg * 3 + grayTheshGlob) / 4;
+    printf("%s> grayThresh: %d (bgEst: %u, avg: %u, xFgMin: %u; grayTheshGlob: %u)\n", __FUNCTION__, grayThresh, ibg, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.96f)), grayTheshGlob);
 }
 
 void Preprocessor::preprocessPreview(const Mat &src,

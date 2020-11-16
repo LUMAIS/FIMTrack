@@ -299,18 +299,29 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
     return timePoint;
 }
 
-void Tracker::extractRawLarvae(unsigned timePoint, Mat const& img, Backgroundsubtractor const& bs, Mat* previewImg, bool checkRoiBorders)
+void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Backgroundsubtractor const& bs, Mat* previewImg, bool checkRoiBorders)
 {
+    Mat fltImg;
     if(_larvaeContainer.dlcTrack.active && _larvaeContainer.dlcTrack.autoThreshold && timePoint < _larvaeContainer.dlcTrack.size()) {
-        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea,
-                                         img, _larvaeContainer.dlcTrack.larvae(timePoint));
-        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
-            , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
+        Rect  fg(0, 0, 0, 0);
+        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fg,
+                                         img, _larvaeContainer.dlcTrack.larvae(timePoint), _larvaeContainer.dlcTrack.matchStat());
+        cv::Size  rsz;
+        Point  roffs;
+        ////img.locateROI(rsz, roffs);
+        //if(fg.width && fg.height)
+        //    img.adjustROI(fg.y, fg.y + fg.height, fg.x, fg.x + fg.width);
+        Mat mask(img.size(), CV_8U);
+        mask(fg) = 1;
+        img.copyTo(fltImg, mask);
+        printf("%s> frame #%u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
+            , __FUNCTION__, timePoint + 1, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
     }
+    else fltImg = img;
 
     contours_t contours;
     contours_t collidedContours;
-    Preprocessor::preprocessTracking(img,
+    Preprocessor::preprocessTracking(fltImg,
                                      contours,
                                      collidedContours,
                                      GeneralParameters::iGrayThreshold,
@@ -330,7 +341,7 @@ void Tracker::extractRawLarvae(unsigned timePoint, Mat const& img, Backgroundsub
 
     for (auto const& c : contours)
     {
-        RawLarva rl(c, img);
+        RawLarva rl(c, fltImg);
         _curRawLarvae.push_back(rl);
 
     }
