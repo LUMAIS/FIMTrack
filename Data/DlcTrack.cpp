@@ -309,11 +309,13 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
     clear();
 
     // Load valid (non-nan) values that have reuqired confidance, rounding to Point<int>
-    vector<float>  distances;
     using ValT = float;
     const unsigned  larvaCols = rawVals.cols / nlarvae;
     const unsigned  lvPtsMin = _matchParams.rLarvaPtsMin * (larvaCols / _larvaPtCols);  // Min larva points to accept the larva
     Larva  lv;
+    vector<float>  distances;
+    distances.reserve(rawVals.rows * rawVals.cols / 2);  // Some raw larva are likely to be filtered out
+
     for(int i = 0; i < rawVals.rows; ++i) {
         Larvae  larvae;
         const ValT* rvRow = rawVals.ptr<ValT>(i);
