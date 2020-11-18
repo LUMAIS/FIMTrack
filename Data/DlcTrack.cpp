@@ -218,7 +218,7 @@ bool Tracker::loadCSV(const string& filename)
             vals.push_back(val_nan);
         lsvs.push_back(vals);
         if(rowVals != vals.size()) {
-            fprintf(stderr, "ERROR %s> Inconsistent size of rows for #%ul (nfr: %ul): %ul != %ul\n"
+            fprintf(stderr, "ERROR %s> Inconsistent size of rows for #%lu (nfr: %lu): %lu != %lu\n"
                 , __FUNCTION__, iframe, nfr, vals.size(), rowVals);
             return false;
         }
@@ -352,7 +352,7 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         _matchStat.distStd = stddev[0];
     }
 
-    printf("%s> larvaCols: %u, lvPtsMin: %u, _trajects: %ul\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size());
+    printf("%s> larvaCols: %u, lvPtsMin: %u, _trajects: %lu\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size());
     if(!_trajects.empty()) {
         const Larva&  lv = _trajects[0][0];
         printf("%s> #%u.center[t=0]: %d, %d; avg global dist: %f (SD: %f)\n", __FUNCTION__
