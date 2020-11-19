@@ -339,6 +339,11 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
             }
             // Each 3rd value is likelihood
             const auto lkh = rvRow[j+2];
+            // Note: DLC sometimes estimate point coordinates out of the processing view,
+            // resulting in either negative coordinates or ones exceeding the view frame.
+            // Negative values can be filtered out at once, but the out of range positive values can be identified and handled only after loading the actual frame.
+            // So, it makes sence
+            //  || rvRow[j] < 0 rvRow[j+1] < 0
             if(lkh < confmin || std::isnan(lkh))
                 continue;
             lv.points.emplace_back(rvRow[j], rvRow[j+1]);
@@ -352,13 +357,51 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         _matchStat.distStd = stddev[0];
     }
 
-    printf("%s> larvaCols: %u, lvPtsMin: %u, _trajects: %lu\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size());
+    printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size());
     if(!_trajects.empty()) {
         const Larva&  lv = _trajects[0][0];
         printf("%s> #%u.center[t=0]: %d, %d; avg global dist: %f (SD: %f)\n", __FUNCTION__
             , lv.id, lv.center.x, lv.center.y, _matchStat.distAvg, _matchStat.distStd);
     }
     return true;
+}
+
+void Tracker::filter(const cv::Rect& roi)
+{
+    if(roi.width <= 0 || roi.height <= 0)
+        return;
+
+    size_t  npts = 0;  // The number of removed points
+    const Point  marg{roi.x + roi.width, roi.y + roi.height};
+    // Note: empty items of trajectories should not be erased  because they represent time points.
+    // Each trajectory contains few larvae, so there is no sense to release memory for the empty items
+    for(auto& tr: _trajects) {
+        for(auto ilv = tr.begin(); ilv != tr.end();) {
+            // Check location of each larva center and remove each larva out of the ROI
+            if(ilv->center.x < roi.x || ilv->center.x > marg.x
+            || ilv->center.y < roi.y || ilv->center.y > marg.y) {
+                npts += ilv->points.size();
+                ilv = tr.erase(ilv);
+                continue;
+            }
+
+            // Remove all larva points out of the ROI
+            for(auto ipt = ilv->points.begin(); ipt != ilv->points.end();) {
+                if(ipt->x < roi.x || ipt->x > marg.x
+                || ipt->y < roi.y || ipt->y > marg.y) {
+                    ipt = ilv->points.erase(ipt);
+                    ++npts;
+                } else ++ipt;
+            }
+            if(ilv->points.empty())
+                ilv = tr.erase(ilv);
+            else ++ilv;
+            //assert(!lv.points.empty() && "All larva points can not be located ourside a frame");
+        }
+    }
+
+    if(npts)
+        printf("%s> removed %lu points for the ROI: %d + %d, %d + %d\n", __FUNCTION__, npts, roi.x, roi.width, roi.x, roi.height);
 }
 
 void Tracker::clear()

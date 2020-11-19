@@ -314,8 +314,8 @@ void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Backgroundsub
         Mat mask(img.size(), CV_8U);
         mask(fg) = 1;
         img.copyTo(fltImg, mask);
-        printf("%s> frame #%u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
-            , __FUNCTION__, timePoint + 1, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
+        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
+            , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
     }
     else fltImg = img;
 

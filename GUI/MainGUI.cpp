@@ -210,7 +210,11 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         QMessageBox::information(this, "Information", QString("Can't load image ").append(path));
         return;
     }
-    
+
+    // Filter DLC-loaded trajectories on initialization
+    if(!timePoint && this->_dlcTrack.active)
+        this->_dlcTrack.filter({0, 0, img.cols, img.rows});
+
     // undistor the input image
     if(this->_undistorter.isReady())
     {
@@ -240,8 +244,8 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         Mat mask(img.size(), CV_8U);
         mask(fg) = 1;
         img.copyTo(fltImg, mask);
-        printf("%s> frame #%u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
-            , __FUNCTION__, timePoint + 1, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
+        printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
+            , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
 
         // Update UI values
         this->ui->spinBox_graythresh->setValue(GeneralParameters::iGrayThreshold);

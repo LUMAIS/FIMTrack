@@ -158,6 +158,12 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             else if(pt.y > fgrect.height)
                 fgrect.height = pt.y;
         }
+    if(!(fgrect.x >= 0 && fgrect.y >= 0))
+        printf("%s> fgrect initial: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    assert(fgrect.x >= 0 && fgrect.y >= 0 && "Coordinates validation failed");
+    //printf("%s> fgrect initial: %d + %d of %d, %d + %d of %f\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    fgrect.width -= fgrect.x;
+    fgrect.height -= fgrect.y;
     //grabCut(InputArray img, InputOutputArray mask, Rect rect,
     //       InputOutputArray bgdModel, InputOutputArray fgdModel,
     //       int iterCount, int mode = GC_EVAL);
@@ -178,7 +184,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         if(fgrect.y + fgrect.height >= img.rows)
             fgrect.height = img.rows - fgrect.y;
         foreground = fgrect;
-        //printf("%s> fgrect: %d + %d, %d + %d\n", __FUNCTION__, fgrect.x, fgrect.y, fgrect.width, fgrect.height);
+        // printf("%s> fgrect: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
 
         Mat mask = Mat::zeros(img.size(), CV_8UC1);  // resulting mask
         Mat bgdModel, fgdModel;
@@ -210,7 +216,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             count += num;
         // Cut foreground to ~<70% of the brightest values considering that the hull includes some background.
         // Note that the convex hull cause inclusion of some background pixel in the larva area.
-        count *= 0.5f;  // 0.04 .. 0.08
+        count *= 0.2f;  // 0.04 .. 0.08
         unsigned  ifgmin = 0;
         while(count > 0)
             count -= larvaHist[ifgmin++];

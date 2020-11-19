@@ -108,6 +108,11 @@ public:
     //! \return Whether the file is loaded successfully
     bool loadCSV(const string& filename);
 
+    //! \brief Filter out larvae points out of the ROI
+    //! This filtering is required if the input points may be located out of the actual processing frames (which happens in DLC estimations)
+    //! \param roi  - target region of interest (typically, this is {0, 0, frame_width, frame_height})
+    void filter(const cv::Rect& roi);
+
     //! \brief Clear stored data
     void clear();
 
