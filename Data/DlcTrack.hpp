@@ -88,15 +88,17 @@ protected:
     //! \param nlarvae  - the number of larvae
     //! \param confmin  - minimal confidance of coordinates to be accepted
     //! \return whether the trajectories loaded successfully
-    bool loadTrajects(const cv::Mat& rawVals, unsigned nlarvae, float confmin=0.5);
+    bool loadTrajects(const cv::Mat& rawVals, unsigned nlarvae, float confmin=0.01);  // 0.5; Note: some significant points may have likelyhood = 0.01 in DLC
 public:
+    const char* wndFgName;  //!< Window name to display foreground ROI
     bool active;  //!< Whether the stored data should be used or omitted by the external client
     bool autoThreshold;  //!< Whether to evaluate the brightness (gray) and larvae area thresholds or use manual values
 
     //! \brief Tracker constructor
     //! \param rLarvaStdMax  - max ratio of the Standard Deviation of the larva center on matching, ~ 1..3
     //! \param rLarvaPtsMin  - min ratio of the larva points to acccept the DLC-tracked larva, (0, 1]
-    Tracker(float rLarvaStdMax=1.5, float rLarvaPtsMin=0.4): _matchParams{rLarvaStdMax, rLarvaPtsMin}, _matchStat{0}, _trajects(), active(true)  {}
+    Tracker(float rLarvaStdMax=1.5, float rLarvaPtsMin=0.4): _matchParams{rLarvaStdMax, rLarvaPtsMin}, _matchStat{0}, _trajects()
+        , wndFgName("Foreground ROI"), active(true)  {}
 
     //! \brief Load larvae trajectories
     //! \param filename  - hdf5 file name, containing larvae trajectories

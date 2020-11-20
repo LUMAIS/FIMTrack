@@ -58,10 +58,11 @@ public:
      * @param imgGray  - gray-scale image
      * @param larvae  - DLC-tracked larvae
      * @param matchStat  - matching statistics
+     * @param wndName  - window name to display foreground ROI
      */
     static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Rect& foreground,
                                           const cv::Mat& imgGray, const dlc::Larvae& larvae,
-                                          const dlc::MatchStat& matchStat);
+                                          const dlc::MatchStat& matchStat, const char* wndName=nullptr);
 
     /**
      * @brief preprocessPreview calculates all contours necessary for preview. The image (src) is thresholded and the resultant binary

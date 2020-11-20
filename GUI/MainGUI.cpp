@@ -238,7 +238,7 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         //    , __FUNCTION__, timePoint, _dlcTrack.size()
         //    , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
         Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fg,
-                                         img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat());
+                                         img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat(), _dlcTrack.wndFgName);
         //if(fg.width && fg.height)
         //    img.adjustROI(fg.y, fg.y + fg.height, fg.x, fg.x + fg.width);
         Mat mask(img.size(), CV_8U);
@@ -814,10 +814,12 @@ void MainGUI::on_cbAutoThresholds_stateChanged(int state)
         ui->spinBox_maxSizeThresh->setEnabled(true);
         ui->spinBox_minSizeThresh->setEnabled(true);
         _dlcTrack.autoThreshold = false;
+        cv::destroyWindow(_dlcTrack.wndFgName);
     } else {
         ui->spinBox_graythresh->setEnabled(false);
         ui->spinBox_maxSizeThresh->setEnabled(false);
         ui->spinBox_minSizeThresh->setEnabled(false);
         _dlcTrack.autoThreshold = true;
+        cv::namedWindow(_dlcTrack.wndFgName);
     }
 }

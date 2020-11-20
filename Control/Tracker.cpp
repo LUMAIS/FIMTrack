@@ -305,7 +305,7 @@ void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Backgroundsub
     if(_larvaeContainer.dlcTrack.active && _larvaeContainer.dlcTrack.autoThreshold && timePoint < _larvaeContainer.dlcTrack.size()) {
         Rect  fg(0, 0, 0, 0);
         Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fg,
-                                         img, _larvaeContainer.dlcTrack.larvae(timePoint), _larvaeContainer.dlcTrack.matchStat());
+                                         img, _larvaeContainer.dlcTrack.larvae(timePoint), _larvaeContainer.dlcTrack.matchStat(), _larvaeContainer.dlcTrack.wndFgName);
         cv::Size  rsz;
         Point  roffs;
         ////img.locateROI(rsz, roffs);

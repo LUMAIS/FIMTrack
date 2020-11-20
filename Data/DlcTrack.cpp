@@ -323,12 +323,20 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         for(int j = 0; j < rawVals.cols; j += _larvaPtCols) {
             // Look-ahead reading of larva
             if(j % larvaCols == 0) {
-                //if(!lv.points.empty())
+                // ATTENTION: ids are assigned to the original larvae even if they are empty and omitted, otherwise ids would be invalid
+                lv.id = ++uid;  // Note: ids should start from 1, 0 indicates non-tracable larva
                 if(lv.points.size() >= lvPtsMin) {
-                   lv.id = ++uid;  // Note: ids should start from 1, 0 indicates non-tracable larva
                    //cv::Scalar  center = cv::mean(lv);
                    //lv.center = Point(round(center.x), round(center.y))
                    lv.center = toPoint(cv::mean(lv.points));
+                   // Note: larvae filtering is performed later to handle both min and max margins
+                   if(lv.center.x < 0 || lv.center.y < 0) {
+                       printf("WARNING %s> #%u.center[t=%d] is negative: (%d, %d), points: ", __FUNCTION__
+                           , uid, i, lv.center.x, lv.center.y);
+                       for(const auto& pt: lv.points)
+                           printf(" (%d, %d)", pt.x, pt.y);
+                       puts("");  // Endl
+                   }
                    larvae.push_back(lv);
 
                    // Store distances from the center
@@ -344,9 +352,11 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
             // Negative values can be filtered out at once, but the out of range positive values can be identified and handled only after loading the actual frame.
             // So, it makes sence
             //  || rvRow[j] < 0 rvRow[j+1] < 0
-            if(lkh < confmin || std::isnan(lkh))
+            const auto x = rvRow[j];
+            const auto y = rvRow[j+1];
+            if(lkh < confmin || std::isnan(lkh) || std::isnan(x) || std::isnan(y))  // Note: sometimes x or y is NaN for valid likelihood (e.g., vid_2 #4[0])
                 continue;
-            lv.points.emplace_back(rvRow[j], rvRow[j+1]);
+            lv.points.emplace_back(round(x), round(y));
         }
         _trajects.push_back(larvae);
     }
@@ -357,10 +367,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         _matchStat.distStd = stddev[0];
     }
 
-    printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size());
+    printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size(), confmin);
     if(!_trajects.empty()) {
         const Larva&  lv = _trajects[0][0];
-        printf("%s> #%u.center[t=0]: %d, %d; avg global dist: %f (SD: %f)\n", __FUNCTION__
+        printf("%s> #%u.center[t=0]: (%d, %d); avg global dist: %f (SD: %f)\n", __FUNCTION__
             , lv.id, lv.center.x, lv.center.y, _matchStat.distAvg, _matchStat.distStd);
     }
     return true;
@@ -375,12 +385,15 @@ void Tracker::filter(const cv::Rect& roi)
     const Point  marg{roi.x + roi.width, roi.y + roi.height};
     // Note: empty items of trajectories should not be erased  because they represent time points.
     // Each trajectory contains few larvae, so there is no sense to release memory for the empty items
+    unsigned  ntr = 0;  // Trajectory item number
     for(auto& tr: _trajects) {
         for(auto ilv = tr.begin(); ilv != tr.end();) {
             // Check location of each larva center and remove each larva out of the ROI
             if(ilv->center.x < roi.x || ilv->center.x > marg.x
             || ilv->center.y < roi.y || ilv->center.y > marg.y) {
                 npts += ilv->points.size();
+                printf("%s> timePoint: %u, removing %lu points with the center (%d, %d) for the ROI: (%d + %d, %d + %d)\n", __FUNCTION__
+                    , ntr, npts, ilv->center.x, ilv->center.y, roi.x, roi.width, roi.y, roi.height);
                 ilv = tr.erase(ilv);
                 continue;
             }
@@ -389,19 +402,21 @@ void Tracker::filter(const cv::Rect& roi)
             for(auto ipt = ilv->points.begin(); ipt != ilv->points.end();) {
                 if(ipt->x < roi.x || ipt->x > marg.x
                 || ipt->y < roi.y || ipt->y > marg.y) {
+                    printf("%s> removing (%d, %d)\n", __FUNCTION__, ipt->x, ipt->y);
                     ipt = ilv->points.erase(ipt);
                     ++npts;
                 } else ++ipt;
             }
-            if(ilv->points.empty())
+            if(ilv->points.empty())  // lv.points.size() < lvPtsMin
                 ilv = tr.erase(ilv);
             else ++ilv;
             //assert(!lv.points.empty() && "All larva points can not be located ourside a frame");
         }
+        ++ntr;
     }
 
     if(npts)
-        printf("%s> removed %lu points for the ROI: %d + %d, %d + %d\n", __FUNCTION__, npts, roi.x, roi.width, roi.x, roi.height);
+        printf("%s> removed %lu points for the ROI: (%d + %d, %d + %d)\n", __FUNCTION__, npts, roi.x, roi.width, roi.y, roi.height);
 }
 
 void Tracker::clear()
@@ -439,6 +454,8 @@ unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& la
         res = &larvae[idHint - 1];
     } else {
         for(const auto& lv: larvae) {
+            if(lv.points.empty())
+                continue;
             double dist = norm(lv.center - center);
             if(dist < dmin) {
                 dmin = dist;

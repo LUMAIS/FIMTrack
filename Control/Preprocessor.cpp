@@ -131,7 +131,7 @@ void Preprocessor::borderRestriction(contours_t &contours, const Mat& img, bool 
 }
 
 void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Rect& foreground,
-                                      const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat)
+                                      const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat, const char* wndName)
 {
     if(larvae.empty())
         return;
@@ -143,48 +143,54 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     std::array<unsigned, 255>  bgHist = {0};
 
     // Identify an approximate foregroud ROI
-    ////const auto  lp0 = larvae[0].points[0];
-    //// Note: take width and height to 1 pixel to properly form the rect
-    Rect  fgrect = {img.cols, img.rows, 0, 0};  // 1, 1
+    // Note: initially, store top-left and bottom-right points in the rect, and ther change the latter to height-width
+    Rect  fgrect = {img.cols, img.rows, 0, 0};
     for(const auto& lv: larvae)
         for(const auto& pt: lv.points) {
             if(pt.x < fgrect.x)
                 fgrect.x = pt.x;
-            else if(pt.x > fgrect.width)
+            if(pt.x > fgrect.width)
                 fgrect.width = pt.x;
 
             if(pt.y < fgrect.y)
                 fgrect.y = pt.y;
-            else if(pt.y > fgrect.height)
+            if(pt.y > fgrect.height)
                 fgrect.height = pt.y;
         }
-    if(!(fgrect.x >= 0 && fgrect.y >= 0))
-        printf("%s> fgrect initial: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
-    assert(fgrect.x >= 0 && fgrect.y >= 0 && "Coordinates validation failed");
-    //printf("%s> fgrect initial: %d + %d of %d, %d + %d of %f\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    // Convert bottom-right to height-width
     fgrect.width -= fgrect.x;
     fgrect.height -= fgrect.y;
+    //if(!(fgrect.x >= 0 && fgrect.y >= 0))
+    //    printf("%s> fgrect initial: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    //assert(fgrect.x >= 0 && fgrect.y >= 0 && "Coordinates validation failed");
+    //printf("%s> fgrect initial: %d + %d of %d, %d + %d of %f\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
     //grabCut(InputArray img, InputOutputArray mask, Rect rect,
     //       InputOutputArray bgdModel, InputOutputArray fgdModel,
     //       int iterCount, int mode = GC_EVAL);
     unsigned  grayTheshGlob = 0;
     if(fgrect.width && fgrect.height) {
         // Expand the foreground ROI with the statistical span
-        const int  span = matchStat.distAvg + 2 * matchStat.distStd;  // Note: we expend from the border points rather thatn from the center => *2 rather than *3
-        fgrect.x -= span;
-        if(fgrect.x < 0)
+        const int  span = matchStat.distAvg + matchStat.distStd;  // Note: we expend from the border points rather thatn from the center => *1..2 rather than *3
+        int dx = span;
+        fgrect.x -= dx;
+        if(fgrect.x < 0) {
+            dx += fgrect.x;
             fgrect.x = 0;
-        fgrect.y -= span;
-        if(fgrect.y < 0)
+        }
+        int dy = span;
+        fgrect.y -= dy;
+        if(fgrect.y < 0) {
+            dy += fgrect.y;
             fgrect.y = 0;
-        fgrect.width += span;
+        }
+        fgrect.width += dx + span;
         if(fgrect.x + fgrect.width >= img.cols)
             fgrect.width = img.cols - fgrect.x;
-        fgrect.height += span;
+        fgrect.height += dy + span;
         if(fgrect.y + fgrect.height >= img.rows)
             fgrect.height = img.rows - fgrect.y;
         foreground = fgrect;
-        // printf("%s> fgrect: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+        printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
 
         Mat mask = Mat::zeros(img.size(), CV_8UC1);  // resulting mask
         Mat bgdModel, fgdModel;
@@ -192,9 +198,12 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
         cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT);
         cv::compare(mask, cv::GC_PR_FGD, mask, cv::CMP_EQ);  // Retain only the foreground
-        Mat imgFg;  // Foreground image
-        img.copyTo(imgFg, mask);
-        cv::imshow("Foreground", imgFg);
+        if(wndName) {
+            Mat imgFg;  // Foreground image
+            img.copyTo(imgFg, mask);
+            cv::rectangle(imgFg, fgrect, cv::Scalar(255, 0, 0), 1);  // Blue rect
+            cv::imshow(wndName, imgFg);
+        }
 
         // Evaluate brightness
         const int  xEnd = fgrect.x + fgrect.width;
