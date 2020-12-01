@@ -131,7 +131,7 @@ void Preprocessor::borderRestriction(contours_t &contours, const Mat& img, bool 
 }
 
 void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Rect& foreground,
-                                      const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat, const char* wndName)
+                                      Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat, const char* wndName)
 {
     if(larvae.empty())
         return;
@@ -203,6 +203,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             img.copyTo(imgFg, mask);
             cv::rectangle(imgFg, fgrect, cv::Scalar(255, 0, 0), 1);  // Blue rect
             cv::imshow(wndName, imgFg);
+            // Set image to black outside the mask
+            bitwise_not(mask, mask);  // Invert the mask
+            img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
         }
 
         // Evaluate brightness
@@ -256,6 +259,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             for(int x = brect.x; x < xEnd; ++x) {
                 //fprintf(stderr, "%u ", img.at<uchar>(y, x));
                 uint8_t  bval = img.at<uint8_t>(y, x);
+                // Omit 0 values, which are definitely background
+                if(!bval)
+                    continue;
                 if(pointPolygonTest(hull, Point2f(x, y), false) >= 0)
                     ++larvaHist[bval];  // brightness
                 else ++bgHist[bval];

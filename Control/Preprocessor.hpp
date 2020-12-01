@@ -61,7 +61,7 @@ public:
      * @param wndName  - window name to display foreground ROI
      */
     static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Rect& foreground,
-                                          const cv::Mat& imgGray, const dlc::Larvae& larvae,
+                                          cv::Mat& imgGray, const dlc::Larvae& larvae,
                                           const dlc::MatchStat& matchStat, const char* wndName=nullptr);
 
     /**
