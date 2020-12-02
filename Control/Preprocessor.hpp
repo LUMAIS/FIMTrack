@@ -54,14 +54,14 @@ public:
      * @param grayThresh  - grey threshold
      * @param minSizeThresh  - min expected size of a larva
      * @param maxSizeThresh  - max expected size of a larva
-     * @param foreground  - foreground ROI
-     * @param imgGray  - gray-scale image
+     * @param imgFg  - resulting foreground image
+     * @param imgGray  - input gray-scale image
      * @param larvae  - DLC-tracked larvae
      * @param matchStat  - matching statistics
      * @param wndName  - window name to display foreground ROI
      */
-    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Rect& foreground,
-                                          cv::Mat& imgGray, const dlc::Larvae& larvae,
+    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Mat& imgFg,
+                                          const cv::Mat& imgGray, const dlc::Larvae& larvae,
                                           const dlc::MatchStat& matchStat, const char* wndName=nullptr);
 
     /**

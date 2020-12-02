@@ -130,13 +130,11 @@ void Preprocessor::borderRestriction(contours_t &contours, const Mat& img, bool 
     contours = validContours;
 }
 
-void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Rect& foreground,
-                                      Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat, const char* wndName)
+void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Mat& imgFg,
+                                      const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat, const char* wndName)
 {
     if(larvae.empty())
         return;
-    dlc::Larva::Points  hull;
-    //hull.reserve(larvae[0].points.size());
     vector<float>  areas;
     areas.reserve(larvae.size());
     std::array<unsigned, 255>  larvaHist = {0};
@@ -189,7 +187,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         fgrect.height += dy + span;
         if(fgrect.y + fgrect.height >= img.rows)
             fgrect.height = img.rows - fgrect.y;
-        foreground = fgrect;
+        //foreground = fgrect;
         //printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
 
         Mat mask = Mat::zeros(img.size(), CV_8UC1);  // resulting mask
@@ -199,13 +197,15 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT);
         cv::compare(mask, cv::GC_PR_FGD, mask, cv::CMP_EQ);  // Retain only the foreground
         if(wndName) {
-            Mat imgFg;  // Foreground image
+            //Mat imgFg;  // Foreground image
             img.copyTo(imgFg, mask);
-            cv::rectangle(imgFg, fgrect, cv::Scalar(255, 0, 0), 1);  // Blue rect
-            cv::imshow(wndName, imgFg);
-            // Set image to black outside the mask
-            bitwise_not(mask, mask);  // Invert the mask
-            img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
+            Mat imgFgVis;  // Visualizing foreground image
+            imgFg.copyTo(imgFgVis);
+            cv::rectangle(imgFgVis, fgrect, cv::Scalar(255, 0, 0), 1);  // Blue rect
+            cv::imshow(wndName, imgFgVis);
+            //// Set image to black outside the mask
+            //bitwise_not(mask, mask);  // Invert the mask
+            //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
         }
 
         // Evaluate brightness
@@ -245,6 +245,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //    cv.imshow('canvasOutput', src);
 //    src.delete(); mask.delete(); bgdModel.delete(); fgdModel.delete();
 
+    // Evaluate brightness histograms
+    // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
+    dlc::Larva::Points  hull;
+    //hull.reserve(larvae[0].points.size());
     for(const auto& lv: larvae) {
         // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
         cv::convexHull(lv.points, hull);

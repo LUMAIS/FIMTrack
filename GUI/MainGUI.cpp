@@ -233,23 +233,11 @@ void MainGUI::showImage(unsigned timePoint, QString path)
     // Evaluate automatic thresholds
     Mat fltImg;
     if(_dlcTrack.active && _dlcTrack.autoThreshold && timePoint < _dlcTrack.size()) {
-        Rect  fg(0, 0, 0, 0);
         //printf("%s calling estimateThresholds...> timePoint: %u, DLC trajs size: %lu; current thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
         //    , __FUNCTION__, timePoint, _dlcTrack.size()
         //    , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
-        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fg,
+        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg,
                                          img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat(), _dlcTrack.wndFgName);
-        //if(fg.width && fg.height)
-        //    img.adjustROI(fg.y, fg.y + fg.height, fg.x, fg.x + fg.width);
-        // Set fltImg to ROI
-        Mat mask(img.size(), CV_8U);
-        mask(fg) = 1;
-        img.copyTo(fltImg, mask);
-        //// Set image to black outside the mask
-        //Mat mask(img.size(), CV_8U, 0xFF);
-        //mask(fg).setTo(0); // Black out roi
-        //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
-        //fltImg = img;
         printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
             , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
 
