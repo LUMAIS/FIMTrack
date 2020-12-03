@@ -88,7 +88,7 @@ protected:
     //! \param nlarvae  - the number of larvae
     //! \param confmin  - minimal confidance of coordinates to be accepted
     //! \return whether the trajectories loaded successfully
-    bool loadTrajects(const cv::Mat& rawVals, unsigned nlarvae, float confmin=0.01);  // 0.5; Note: some significant points may have likelyhood = 0.01 in DLC
+    bool loadTrajects(const cv::Mat& rawVals, unsigned nlarvae, float confmin=0.1);  // 0.5; Note: some significant points may have likelyhood = 0.01 in DLC
 public:
     const char* wndFgName;  //!< Window name to display foreground ROI
     bool active;  //!< Whether the stored data should be used or omitted by the external client

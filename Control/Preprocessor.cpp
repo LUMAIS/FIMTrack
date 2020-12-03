@@ -140,10 +140,18 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     std::array<unsigned, 255>  larvaHist = {0};
     std::array<unsigned, 255>  bgHist = {0};
 
+    // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
+    dlc::Larva::Points  hull;
+    vector<dlc::Larva::Points> hulls;
     // Identify an approximate foregroud ROI
     // Note: initially, store top-left and bottom-right points in the rect, and ther change the latter to height-width
     Rect  fgrect = {img.cols, img.rows, 0, 0};
-    for(const auto& lv: larvae)
+    for(const auto& lv: larvae) {
+        // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
+        hull.reserve(lv.points.size());
+        cv::convexHull(lv.points, hull);
+        hulls.push_back(std::move(hull));
+
         for(const auto& pt: lv.points) {
             if(pt.x < fgrect.x)
                 fgrect.x = pt.x;
@@ -155,6 +163,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             if(pt.y > fgrect.height)
                 fgrect.height = pt.y;
         }
+    }
     // Convert bottom-right to height-width
     fgrect.width -= fgrect.x;
     fgrect.height -= fgrect.y;
@@ -190,18 +199,77 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         //foreground = fgrect;
         //printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
 
-        Mat mask = Mat::zeros(img.size(), CV_8UC1);  // resulting mask
+        Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
+        Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
+        {
+            Mat maskProbFg(maskProbBg.size(), CV_8UC1, Scalar(0));
+            //cv::drawContours(maskProbFg, hulls, -1, Scalar(cv::GC_PR_FGD), cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+            // Note: the color of nested (overlaping) contours is inverted, so each hull should be drawn separately
+            for(const auto& hull: hulls)
+                cv::drawContours(maskProbFg, vector<dlc::Larva::Points>(1, hull), 0, cv::GC_PR_FGD, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-fgrect.x, -fgrect.y)); // Scalar(cv::GC_PR_FGD)
+            // Dilate convex to extract probable foreground
+            Mat maskProbFgx;
+            cv::dilate(maskProbFg, maskProbFgx, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 4.f, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
+            Mat imgMask(maskProbFgx.size(), CV_8UC1, Scalar(0));  // Visualizing combined masks
+            if(wndName)
+                imgMask.setTo(0x44, maskProbFgx);
+            Mat maskFg;
+            // Erode excluded convex hulls from the mask
+            cv::erode(maskProbFg, maskFg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 6.f);  // 6..8; Iterations: ~= Ravg / 8 + 1
+            if(wndName)
+                imgMask.setTo(0xFF, maskFg);
+            //Mat maskProbBg(maskProbFg.size(), CV_8UC1, Scalar(0xFF));
+            maskProbBg.setTo(0, maskProbFg);  // cv::GC_BGD, GC_PR_BGD
+            // Erode convex to extract Probable background
+            cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 2.6f);  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
+            //cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 2);  // Iterations: ~= Ravg / 8 + 1
+            if(wndName) {
+                imgMask.setTo(0x77, maskProbBg);
+                cv::imshow("Masks", imgMask);
+            }
+            //maskProbBg.setTo(cv::GC_BGD, maskProbBg);  // cv::GC_BGD, GC_PR_BGD
+
+            // Form the mask
+            Mat maskRoi = mask(fgrect);
+            //maskProbBg.copyTo(maskRoi, maskProbBg);
+            //maskProbFg.copyTo(maskRoi, maskProbFgx);
+            maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // cv::GC_PR_FGD, GC_FGD
+            maskRoi.setTo(cv::GC_FGD, maskFg);
+            maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
+        }
+
         Mat bgdModel, fgdModel;
         Mat imgClr;
         cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
-        cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT);
-        cv::compare(mask, cv::GC_PR_FGD, mask, cv::CMP_EQ);  // Retain only the foreground
+        cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
         if(wndName) {
+            Mat maskFg;
+            //cv::compare(mask, cv::GC_PR_FGD, maskFg, cv::CMP_EQ);  // Retain only the foreground
+            cv::threshold(mask, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
             //Mat imgFg;  // Foreground image
-            img.copyTo(imgFg, mask);
+            img.copyTo(imgFg, maskFg);
+            cv::threshold(mask, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type
+            img.copyTo(imgFg, maskFg);
+            // Remove remained background
+            Mat imgFgRoi = imgFg(fgrect);
+            cv::imshow("ProbFgRoi", imgFgRoi);
+            imgFgRoi.setTo(0, maskProbBg);
+
+            //// Execute one more iteration of GrabCut
+            //Mat maskRoi = mask(fgrect);
+            //imgFgRoi.setTo(cv::GC_BGD, maskProbBg);
+            //cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
+
+            //// Find Contours
+            //vector<vector<cv::Point>>  conts;
+            //cv::findContours(imgFgRoi, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+            //cv::drawContours(imgFgRoi, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+
             Mat imgFgVis;  // Visualizing foreground image
             imgFg.copyTo(imgFgVis);
-            cv::rectangle(imgFgVis, fgrect, cv::Scalar(255, 0, 0), 1);  // Blue rect
+            cv::rectangle(imgFgVis, fgrect, cv::Scalar(0xFF), 1);
+            cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+//            cv::drawContours(maskProbFg, hulls, -1, cv::Scalar(255, 0, 0), 2, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
             cv::imshow(wndName, imgFgVis);
             //// Set image to black outside the mask
             //bitwise_not(mask, mask);  // Invert the mask
@@ -247,11 +315,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
     // Evaluate brightness histograms
     // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
-    dlc::Larva::Points  hull;
-    //hull.reserve(larvae[0].points.size());
-    for(const auto& lv: larvae) {
+    for(const auto& hull: hulls) {
         // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
-        cv::convexHull(lv.points, hull);
         areas.push_back(cv::contourArea(hull));
 
         // Evaluate brightness
@@ -273,8 +338,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //fprintf(stderr, "\n");
         }
         //fprintf(stderr, "area: %f, brightness: %u\n", area, bval);
-
-        hull.clear();
     }
     cv::Scalar mean, stddev;
     cv::meanStdDev(areas, mean, stddev);
@@ -292,6 +355,34 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     //    , minSizeThresh, int(mean[0] - 4.f * stddev[0]), unsigned(0.56f * areas[0]));
     //printf("%s> maxSizeThresh: %d (meanSdev: %d, areaMaxLim: %u)\n", __FUNCTION__
     //    , maxSizeThresh, int(mean[0] + 5.f * stddev[0]), unsigned(2.5f * areas[areas.size() - 1]));
+
+//    if(!maskFg.empty()) {
+//        //fprintf(stderr, "Hull: %lu\n", hull.size());
+//        cv::drawContours(maskFg, hulls, -1, cv::GC_FGD, cv::FILLED);  // index, color; v or Scalar(v), cv::GC_FGD
+//        //// Exclude foreground from mask
+//        //cv::drawContours(maskFg, {hull}, 0, 0, CV_FILLED);  // index, color; 0 or Scalar()
+//    }
+
+    //    // Erode excluded convex hulls from the mask
+//    cv::erode(mask, mask, Mat(), Point(-1,-1), 1 + matchStat.distAvg / 8);  // Iterations: ~= Ravg / 8 + 1
+//    if(wndName)
+//        cv::imshow("Eroded Mask", mask);
+//    // GrabCut interpretation: 0 is bg, 1 is fg
+//    // Mark  probably FG on the original mask.
+//    cv::grabCut(imgClr, mask, mask, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
+//    //Mat mask = Mat::zeros(img.size(), CV_8UC1);  // resulting mask
+//    cv::compare(mask, cv::GC_PR_FGD, mask, cv::CMP_EQ);  // Retain only the foreground
+//    if(wndName) {
+//        //Mat imgFg;  // Foreground image
+//        img.copyTo(imgFg, mask);
+//        Mat imgFgVis;  // Visualizing foreground image
+//        imgFg.copyTo(imgFgVis);
+//        cv::rectangle(imgFgVis, fgrect, cv::Scalar(255, 0, 0), 1);  // Blue rect
+//        cv::imshow(wndName, imgFgVis);
+//        //// Set image to black outside the mask
+//        //bitwise_not(mask, mask);  // Invert the mask
+//        //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
+//    }
 
     // Calculate the number of values in foreground
     int32_t count = 0;
