@@ -171,9 +171,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     //    printf("%s> fgrect initial: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
     //assert(fgrect.x >= 0 && fgrect.y >= 0 && "Coordinates validation failed");
     //printf("%s> fgrect initial: %d + %d of %d, %d + %d of %f\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
-    //grabCut(InputArray img, InputOutputArray mask, Rect rect,
-    //       InputOutputArray bgdModel, InputOutputArray fgdModel,
-    //       int iterCount, int mode = GC_EVAL);
     unsigned  grayTheshGlob = 0;
     if(fgrect.width && fgrect.height) {
         // Expand the foreground ROI with the statistical span
@@ -202,27 +199,29 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
         Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
         {
-            Mat maskProbFg(maskProbBg.size(), CV_8UC1, Scalar(0));
-            //cv::drawContours(maskProbFg, hulls, -1, Scalar(cv::GC_PR_FGD), cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+            Mat maskProbFgOrig(maskProbBg.size(), CV_8UC1, Scalar(0));
+            //cv::drawContours(maskProbFgOrig, hulls, -1, Scalar(cv::GC_PR_FGD), cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
             // Note: the color of nested (overlaping) contours is inverted, so each hull should be drawn separately
             for(const auto& hull: hulls)
-                cv::drawContours(maskProbFg, vector<dlc::Larva::Points>(1, hull), 0, cv::GC_PR_FGD, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-fgrect.x, -fgrect.y)); // Scalar(cv::GC_PR_FGD)
+                cv::drawContours(maskProbFgOrig, vector<dlc::Larva::Points>(1, hull), 0, cv::GC_PR_FGD, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-fgrect.x, -fgrect.y)); // Scalar(cv::GC_PR_FGD)
             // Dilate convex to extract probable foreground
             Mat maskProbFgx;
-            cv::dilate(maskProbFg, maskProbFgx, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 4.f, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
+            cv::dilate(maskProbFgOrig, maskProbFgx, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 4.f, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
             Mat imgMask(maskProbFgx.size(), CV_8UC1, Scalar(0));  // Visualizing combined masks
             if(wndName)
                 imgMask.setTo(0x44, maskProbFgx);
             Mat maskFg;
             // Erode excluded convex hulls from the mask
-            cv::erode(maskProbFg, maskFg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 6.f);  // 6..8; Iterations: ~= Ravg / 8 + 1
+            cv::erode(maskProbFgOrig, maskFg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 6.f);  // 6..8; Iterations: ~= Ravg / 8 + 1
             if(wndName)
                 imgMask.setTo(0xFF, maskFg);
             //Mat maskProbBg(maskProbFg.size(), CV_8UC1, Scalar(0xFF));
-            maskProbBg.setTo(0, maskProbFg);  // cv::GC_BGD, GC_PR_BGD
+            //maskProbBg.setTo(0, maskProbFgOrig);  // cv::GC_BGD, GC_PR_BGD
+            //// Erode convex to extract Probable background
+            //cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 2.6f);  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
+            maskProbBg.setTo(0, maskProbFgx);  // cv::GC_BGD, GC_PR_BGD
             // Erode convex to extract Probable background
-            cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 2.6f);  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
-            //cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 2);  // Iterations: ~= Ravg / 8 + 1
+            cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 2);  // Iterations: ~= 1 .. 2
             if(wndName) {
                 imgMask.setTo(0x77, maskProbBg);
                 cv::imshow("Masks", imgMask);
