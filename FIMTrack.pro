@@ -53,7 +53,8 @@ macx {
             -lopencv_core \
             -lopencv_highgui \
             -lopencv_imgproc \
-            -lopencv_imgcodecs \
+			-lopencv_photo \
+			-lopencv_imgcodecs \
 			-lopencv_calib3d \
 			-lopencv_videoio \
 			-lhdf5_cpp \
@@ -72,7 +73,8 @@ unix {
     LIBS += -lopencv_core \
             -lopencv_highgui \
             -lopencv_imgproc \
-            -lopencv_imgcodecs \
+			-lopencv_photo \
+			-lopencv_imgcodecs \
 			-lopencv_calib3d \
 			-lopencv_videoio \
 			-lhdf5_cpp \

@@ -204,6 +204,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         Mat maskLight;  // Lest strict mask for the FIMTrack processing
         Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
         {
+            constexpr uint8_t  CLR_BG = 0;
+            constexpr uint8_t  CLR_BG_PROB = 0x44;
+            constexpr uint8_t  CLR_FG_PROB = 0xAA;
+            constexpr uint8_t  CLR_FG = 0xFF;
             Mat maskProbFgOrig(maskProbBg.size(), CV_8UC1, Scalar(0));
             //cv::drawContours(maskProbFgOrig, hulls, -1, Scalar(cv::GC_PR_FGD), cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
             // Note: the color of nested (overlaping) contours is inverted, so each hull should be drawn separately
@@ -211,15 +215,16 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::drawContours(maskProbFgOrig, vector<dlc::Larva::Points>(1, hull), 0, cv::GC_PR_FGD, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-fgrect.x, -fgrect.y)); // Scalar(cv::GC_PR_FGD)
             // Dilate convex to extract probable foreground
             Mat maskProbFgx;
-            cv::dilate(maskProbFgOrig, maskProbFgx, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 4.f, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
+            const int  opIters = round(1 + matchStat.distAvg / 4.f);  // Operation iterations
+            cv::dilate(maskProbFgOrig, maskProbFgx, Mat(), Point(-1, -1), opIters, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
             Mat imgMask(maskProbFgx.size(), CV_8UC1, Scalar(0));  // Visualizing combined masks
             if(wndName)
-                imgMask.setTo(0x44, maskProbFgx);
+                imgMask.setTo(CLR_FG_PROB, maskProbFgx);
             Mat maskFg;
             // Erode excluded convex hulls from the mask
-            cv::erode(maskProbFgOrig, maskFg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 4.f);  // 4..6..8; Iterations: ~= Ravg / 8 + 1
+            cv::erode(maskProbFgOrig, maskFg, Mat(), Point(-1, -1), opIters);  // 4..6..8; Iterations: ~= Ravg / 8 + 1
             if(wndName)
-                imgMask.setTo(0xFF, maskFg);
+                imgMask.setTo(CLR_FG, maskFg);
             maskProbBg.setTo(0, maskProbFgx);  // cv::GC_BGD, GC_PR_BGD
             Mat maskProbBgLight;
             maskProbBg.copyTo(maskProbBgLight);
@@ -228,7 +233,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 1 + matchStat.distAvg / 2.6f);  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
             cv::erode(maskProbBg, maskProbBg, Mat(), Point(-1, -1), 2);  // Iterations: ~= 1 .. 2
             if(wndName) {
-                imgMask.setTo(0x77, maskProbBg);
+                imgMask.setTo(CLR_BG_PROB, maskProbBg);
                 cv::imshow("Masks", imgMask);
             }
             //maskProbBg.setTo(cv::GC_BGD, maskProbBg);  // cv::GC_BGD, GC_PR_BGD
@@ -237,20 +242,102 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             Mat maskRoi = mask(fgrect);
             //maskProbBg.copyTo(maskRoi, maskProbBg);
             //maskProbFg.copyTo(maskRoi, maskProbFgx);
-            maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // cv::GC_PR_FGD, GC_FGD
-            maskRoi.setTo(cv::GC_FGD, maskFg);
-            mask.copyTo(maskLight);
+            maskRoi.setTo(cv::GC_PR_BGD);  // GC_PR_FGD, GC_PR_BGD
+            //maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // cv::GC_PR_FGD, GC_FGD
+            if(wndName)
+                imgMask.setTo(CLR_BG_PROB);  // Probable aAckground / Foreground; CLR_FG_PROB, CLR_BG_PROB
 
+            // Add CLAHE/OTSU based probable foreground
+            cv::Ptr<CLAHE> clahe = createCLAHE();
+            //const int  grain = 1 + matchStat.distAvg / 2.f;  // Square 3 or 4
+            //clahe->setTilesGridSize(cv::Size(grain, grain));
+            clahe->setClipLimit(8);  // 40; 2,4, 32; 16; 8
+            const Mat imgRoi = img(fgrect);  // Image with the corrected contrast
+            if(wndName)
+                cv::imshow("OrigROI", imgRoi);
+            Mat claheRoi;  // Image with the corrected contrast
+            clahe->apply(imgRoi, claheRoi);
+            // Remove noise if any
+            cv::fastNlMeansDenoising(claheRoi, claheRoi, 6);  // Note: h = 3 (default), 5 (larger denoising with a minor loss in details), or 7 (works the best for the CLAHE-processed images of narrow contrast bandwidth)
+            if(wndName)
+                cv::imshow("ClaheROI Denoised", claheRoi);
+            //// Note: contours in overlapping rava can be identified using adaptiveThreshold
+            //int blockSize = 1 + matchStat.distAvg / 4.f;
+            //if (blockSize % 2 == 0)
+            //    ++blockSize;
+            //cv::adaptiveThreshold(imgCorr, imgCorr, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 1 + matchStat.distAvg / 4.f, 2)
+
+            // Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
+            // Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
+            // Note: reuse maskProbFgx for the true foreground
+            cv::threshold(claheRoi, maskProbFgx, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+            //// Noise removal
+            //kernel = np.ones((3, 3), np.uint8)  # 3, 3
+            //opening = cv.morphologyEx(thresh, cv.MORPH_OPEN, kernel, iterations=2) # orig: 2
+            const int  opClaheIters = round(1 + matchStat.distAvg / 20.f);  // Operation iterations; 24 -> 12 for FG; 16 -> 8
+            // Erode excessive probable foreground
+            // 12..16 for probable foreground; 6 .. 8 for the foreground
+            cv::erode(maskProbFgx, maskProbFgx, Mat(), Point(-1, -1), opClaheIters);  // 4..6, 8..12; Iterations: ~= Ravg / 8 + 1
+            maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // GC_PR_FGD, GC_FGD
+            if(wndName)
+                imgMask.setTo(CLR_FG_PROB, maskProbFgx);  // Foreground;  CLR_FG_PROB, CLR_FG
+            cv::erode(maskProbFgx, maskProbFgx, Mat(), Point(-1, -1), opClaheIters);  // 4..6, 8..12; Iterations: ~= Ravg / 8 + 1
+            maskRoi.setTo(cv::GC_FGD, maskProbFgx);  // GC_PR_FGD, GC_FGD
+            maskRoi.setTo(cv::GC_FGD, maskFg);  // Foreground
+            if(wndName) {
+                //cv::imshow("ProbFgOtsuErdClahe", maskProbFgx);
+                imgMask.setTo(CLR_FG, maskProbFgx);  // Foreground;  CLR_FG_PROB, CLR_FG
+                imgMask.setTo(CLR_FG, maskFg);  // Foreground;
+            }
+
+            mask.copyTo(maskLight);
             maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
+            // Set CLAHE/TRIANGLEbased true background
+            cv::threshold(claheRoi, maskProbBg, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+            //if(wndName) {
+            //    cv::imshow("BgTrianErdClahe", maskProbBg);
+            //}
+            // Note: reuse maskProbFgx for the probable extended background
+            cv::dilate(maskProbBg, maskProbFgx, Mat(), Point(-1, -1), round(1 + matchStat.distAvg / 14.f), cv::BORDER_CONSTANT);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
+            maskRoi.setTo(cv::GC_PR_BGD, maskProbFgx);
+            maskRoi.setTo(cv::GC_BGD, maskProbBg);
+            if(wndName) {
+                //cv::imshow("ProbBgTrianErdClahe", maskProbFgx);
+                imgMask.setTo(CLR_BG_PROB, maskProbFgx);
+                imgMask.setTo(CLR_BG, maskProbBg);
+                cv::imshow("ThrClaheMasks", imgMask);
+            }
+
             maskRoi = maskLight(fgrect);
             maskRoi.setTo(cv::GC_PR_BGD, maskProbBgLight);
+            // Set CLAHE/TRIANGLEbased true background
+            maskRoi.setTo(cv::GC_PR_BGD, maskProbFgx);
+            maskRoi.setTo(cv::GC_BGD, maskProbBg);
         }
 
+        //const Mat& imgOrig = img;
         Mat imgFg;  // Foreground image
         {
+//            cv::imshow("Orig Img", img);
+//            // Apply Contrast Limited Adaptive Histogram Equalization before GrabCut
+//            cv::Ptr<CLAHE> clahe = createCLAHE();
+//            //const int  grain = 1 + matchStat.distAvg / 2.f;
+//            //clahe->setTilesGridSize(cv::Size(grain, grain));
+//            clahe->setClipLimit(8);  // 40; 2,4, 32; 16; 8
+//            Mat imgCorr;  // Image with the corrected contrast
+//            clahe->apply(img, imgCorr);
+//            cv::imshow("Clahe Img", imgCorr);
+//            // Remove noise if any
+//            cv::fastNlMeansDenoising(imgCorr, imgCorr, 6);  // Note: h = 3 (default), 5 (larger denoising with a minor loss in details), or 7 (works the best for the CLAHE-processed images of narrow contrast bandwidth)
+//            cv::imshow("Clahe Img Denoised", imgCorr);
+//            // Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
+//            // Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
+//            cv::threshold(imgCorr, imgCorr, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+//            cv::imshow("Clahe+Th Img", imgCorr);
+
             Mat bgdModel, fgdModel;
             Mat imgClr;
-            cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
+            cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
             cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
             Mat maskFg;
             //cv::compare(mask, cv::GC_PR_FGD, maskFg, cv::CMP_EQ);  // Retain only the foreground
@@ -260,8 +347,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             img.copyTo(imgFg, maskFg);
             // Remove remained background
             Mat imgFgRoi = imgFg(fgrect);
-            imgFgRoi.setTo(0, maskProbBg);
-            cv::imshow("ProbFgRoi", imgFgRoi);
+            if(wndName) {
+                imgFgRoi.setTo(0, maskProbBg);
+                cv::imshow("ProbFgRoi", imgFgRoi);
+            }
 
             //// Execute one more iteration of GrabCut
             //Mat maskRoi = mask(fgrect);
@@ -276,6 +365,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //imgFgOut = imgFg;
             // Apply less strict foreground segmentation for the larva detection by FIMTrack
             //Mat bgdModelLight, fgdModelLight;
+            //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
             cv::grabCut(imgClr, maskLight, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
             cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
             img.copyTo(imgFgOut, maskFg);
@@ -403,7 +493,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             cv::polylines(imgHistFg, hsPts, false, 0xAA);  // Scalar(0xFF)
             cv::polylines(imgHistFg, vector<vector<cv::Point>>(1, std::move(histCutPts)), false, 0x77);  // Scalar(0xFF)
         }
-        cv::imshow("FG Hist", imgHistFg);
+        if(wndName)
+            cv::imshow("FG Hist", imgHistFg);
 
         // Cut foreground to ~<70% of the brightest values considering that the hull includes some background.
         // Note that the convex hull cause inclusion of some background pixel in the larva area.
