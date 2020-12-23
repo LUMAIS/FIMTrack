@@ -271,10 +271,19 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             // Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
             // Note: reuse maskProbFgx for the true foreground
             cv::threshold(claheRoi, maskProbFgx, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
-            //// Noise removal
-            //kernel = np.ones((3, 3), np.uint8)  # 3, 3
-            //opening = cv.morphologyEx(thresh, cv.MORPH_OPEN, kernel, iterations=2) # orig: 2
+            // Noise removal to remov holes in the forground larva mask
+            // kernel = np.ones((3, 3), np.uint8)  # 3, 3
+            //Mat kernel = (Mat_<int>(3, 3) <<
+            //    0, 1, 0,
+            //    1, -1, 1,
+            //    0, 1, 0);
             const int  opClaheIters = round(1 + matchStat.distAvg / 20.f);  // Operation iterations; 24 -> 12 for FG; 16 -> 8
+            {
+                const int  MORPH_SIZE = opClaheIters;  // 1-3
+                const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+                //cv::morphologyEx(claheRoi, claheRoi, cv::MORPH_OPEN, kernel, Point(-1, -1), opClaheIters);  // Iterations: 1, 2, opClaheIters
+                cv::morphologyEx(claheRoi, claheRoi, cv::MORPH_CLOSE, morphKern);  // MORPH_OPEN
+            }
             // Erode excessive probable foreground
             // 12..16 for probable foreground; 6 .. 8 for the foreground
             cv::erode(maskProbFgx, maskProbFgx, Mat(), Point(-1, -1), opClaheIters);  // 4..6, 8..12; Iterations: ~= Ravg / 8 + 1
