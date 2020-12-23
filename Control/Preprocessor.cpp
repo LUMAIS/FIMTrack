@@ -451,32 +451,34 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             histBinPts.push_back(cv::Point(max<int>(bin.x - binsz / 2, 0), bin.y));
             ++bin.x;
         }
-        // Cut the background candidates if applicable
-        const uint8_t  bgSoft = histSize / 6;  // 42
-        printf("%s> foreground reduction: binMax(%d [%d], %d), binMin1(%d, %d), hvMax: %d\n", __FUNCTION__
-            , binMax1.x, bgSoft, binMax1.y, binMin1.x, binMin1.y, hvMax);
+        // Note: foreground cutting shuold not be made when larvae foreground is separated well
+        binsFixed = false;
+        //// Cut the background candidates if applicable
+        //const uint8_t  bgSoft = histSize / 6;  // 42
+        //printf("%s> foreground reduction: binMax(%d [%d], %d), binMin1(%d, %d), hvMax: %d\n", __FUNCTION__
+        //    , binMax1.x, bgSoft, binMax1.y, binMin1.x, binMin1.y, hvMax);
         vector<cv::Point>  histCutPts;
-        if(binsFixed && binMin1.x <= binMax1.x + binsz * 5 && binMin1.y * (1 + 2.f / binsz) < binMax1.y  // 1 + 2.25 / binsz -> 1.75;  + 2 -> 1.68
-        && binMin1.x >= binMax1.x + binsz / 2) {  //  && binMax1.x <= bgSoft
-            if(binMax1.x > bgSoft)
-                printf("WARNING %s> foreground reduction might affect larva: binMax(%d > %d, %d), binMin1(%d, %d), hvMax: %d\n", __FUNCTION__
-                    , binMax1.x, bgSoft, binMax1.y, binMin1.x, binMin1.y, hvMax);
-            // Correct bin margins to represent approximate centers of the bins
-            binMax1.x -= binsz / 4;
-            binMin1.x = max(binMin1.x - binsz * 3 / 4, binMax1.x + 1);
-            unsigned  bgVal = 0;
-            for(unsigned i = 0; i <= binMin1.x; ++i) {
-                const auto& val = larvaHist[i];
-                histCutPts.push_back(cv::Point(i, val));
-                bgVal += val;
-            }
-            // Ensure that BG candidate is not a dark part of larva
-            if(bgVal * 2 < count) {
-                count -= bgVal;
-                for(unsigned i = 0; i <= binMin1.x; ++i)
-                    larvaHist[i] = 0;
-            } else binsFixed = false;
-        } else binsFixed = false;
+        //if(binsFixed && binMin1.x <= binMax1.x + binsz * 5 && binMin1.y * (1 + 2.f / binsz) < binMax1.y  // 1 + 2.25 / binsz -> 1.75;  + 2 -> 1.68
+        //&& binMin1.x >= binMax1.x + binsz / 2) {  //  && binMax1.x <= bgSoft
+        //    if(binMax1.x > bgSoft)
+        //        printf("WARNING %s> foreground reduction might affect larva: binMax(%d > %d, %d), binMin1(%d, %d), hvMax: %d\n", __FUNCTION__
+        //            , binMax1.x, bgSoft, binMax1.y, binMin1.x, binMin1.y, hvMax);
+        //    // Correct bin margins to represent approximate centers of the bins
+        //    binMax1.x -= binsz / 4;
+        //    binMin1.x = max(binMin1.x - binsz * 3 / 4, binMax1.x + 1);
+        //    unsigned  bgVal = 0;
+        //    for(unsigned i = 0; i <= binMin1.x; ++i) {
+        //        const auto& val = larvaHist[i];
+        //        histCutPts.push_back(cv::Point(i, val));
+        //        bgVal += val;
+        //    }
+        //    // Ensure that BG candidate is not a dark part of larva
+        //    if(bgVal * 2 < count) {
+        //        count -= bgVal;
+        //        for(unsigned i = 0; i <= binMin1.x; ++i)
+        //            larvaHist[i] = 0;
+        //    } else binsFixed = false;
+        //} else binsFixed = false;
 
         // Show larva histogram
         const uint16_t  rsz = 2;
