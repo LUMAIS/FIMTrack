@@ -322,6 +322,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             // Set CLAHE/TRIANGLEbased true background
             maskRoi.setTo(cv::GC_PR_BGD, maskProbFgx);
             maskRoi.setTo(cv::GC_BGD, maskProbBg);
+
+            // Apply Grapcut to segment larva foreground vs background using hints
+            {
+
+            }
         }
 
         //const Mat& imgOrig = img;
@@ -376,9 +381,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //Mat bgdModelLight, fgdModelLight;
             //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
             cv::grabCut(imgClr, maskLight, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
-            cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
-            img.copyTo(imgFgOut, maskFg);
+            //cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+            //img.copyTo(imgFgOut, maskFg);
             cv::threshold(maskLight, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type
+            //imgFgOut.setTo(cv::GC_FGD, maskFg);
             img.copyTo(imgFgOut, maskFg);
             // Remove remained background
             imgFgRoi = imgFgOut(fgrect);
@@ -522,7 +528,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
         grayThresh = ifgmin;
         printf("%s> grayThresh: %d, binsFixed: %d, binMin1.x: %d, binMax1.x: %d\n", __FUNCTION__, grayThresh, binsFixed, binMin1.x, binMax1.x);
-    }
+    } else imgFgOut = img;
 
 //    // Evaluate brightness histograms
 //    // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
