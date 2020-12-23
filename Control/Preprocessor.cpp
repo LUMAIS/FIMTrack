@@ -201,14 +201,16 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         //printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
 
         Mat imgFg;  // Foreground image
-        Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
-        Mat maskLight;  // Lest strict mask for the FIMTrack processing
-        Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
         {
             constexpr uint8_t  CLR_BG = 0;
             constexpr uint8_t  CLR_BG_PROB = 0x44;
             constexpr uint8_t  CLR_FG_PROB = 0xAA;
             constexpr uint8_t  CLR_FG = 0xFF;
+
+            Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
+            Mat maskLight;  // Lest strict mask for the FIMTrack processing
+            Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
+
             Mat maskProbFgOrig(maskProbBg.size(), CV_8UC1, Scalar(0));
             //cv::drawContours(maskProbFgOrig, hulls, -1, Scalar(cv::GC_PR_FGD), cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
             // Note: the color of nested (overlaping) contours is inverted, so each hull should be drawn separately
@@ -375,10 +377,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 //Mat bgdModelLight, fgdModelLight;
                 //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
                 cv::grabCut(imgClr, maskLight, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
-                //cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
-                //img.copyTo(imgFgOut, maskFg);
+                cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+                img.copyTo(imgFgOut, maskFg);
                 cv::threshold(maskLight, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type
-                //imgFgOut.setTo(cv::GC_FGD, maskFg);
                 img.copyTo(imgFgOut, maskFg);
                 // Remove remained background
                 imgFgRoi = imgFgOut(fgrect);
