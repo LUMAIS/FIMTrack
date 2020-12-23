@@ -200,6 +200,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         //foreground = fgrect;
         //printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
 
+        Mat imgFg;  // Foreground image
         Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
         Mat maskLight;  // Lest strict mask for the FIMTrack processing
         Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
@@ -325,80 +326,74 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
             // Apply Grapcut to segment larva foreground vs background using hints
             {
+                //cv::imshow("Orig Img", img);
+                //// Apply Contrast Limited Adaptive Histogram Equalization before GrabCut
+                //cv::Ptr<CLAHE> clahe = createCLAHE();
+                ////const int  grain = 1 + matchStat.distAvg / 2.f;
+                ////clahe->setTilesGridSize(cv::Size(grain, grain));
+                //clahe->setClipLimit(8);  // 40; 2,4, 32; 16; 8
+                //Mat imgCorr;  // Image with the corrected contrast
+                //clahe->apply(img, imgCorr);
+                //cv::imshow("Clahe Img", imgCorr);
+                //// Remove noise if any
+                //cv::fastNlMeansDenoising(imgCorr, imgCorr, 6);  // Note: h = 3 (default), 5 (larger denoising with a minor loss in details), or 7 (works the best for the CLAHE-processed images of narrow contrast bandwidth)
+                //cv::imshow("Clahe Img Denoised", imgCorr);
+                //// Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
+                //// Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
+                //cv::threshold(imgCorr, imgCorr, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+                //cv::imshow("Clahe+Th Img", imgCorr);
 
-            }
-        }
+                Mat bgdModel, fgdModel;
+                Mat imgClr;
+                cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
+                cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
+                Mat maskFg;
+                //cv::compare(mask, cv::GC_PR_FGD, maskFg, cv::CMP_EQ);  // Retain only the foreground
+                cv::threshold(mask, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+                img.copyTo(imgFg, maskFg);
+                cv::threshold(mask, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type
+                img.copyTo(imgFg, maskFg);
+                // Remove remained background
+                Mat imgFgRoi = imgFg(fgrect);
+                if(wndName) {
+                    imgFgRoi.setTo(0, maskProbBg);
+                    cv::imshow("ProbFgRoi", imgFgRoi);
+                }
 
-        //const Mat& imgOrig = img;
-        Mat imgFg;  // Foreground image
-        {
-//            cv::imshow("Orig Img", img);
-//            // Apply Contrast Limited Adaptive Histogram Equalization before GrabCut
-//            cv::Ptr<CLAHE> clahe = createCLAHE();
-//            //const int  grain = 1 + matchStat.distAvg / 2.f;
-//            //clahe->setTilesGridSize(cv::Size(grain, grain));
-//            clahe->setClipLimit(8);  // 40; 2,4, 32; 16; 8
-//            Mat imgCorr;  // Image with the corrected contrast
-//            clahe->apply(img, imgCorr);
-//            cv::imshow("Clahe Img", imgCorr);
-//            // Remove noise if any
-//            cv::fastNlMeansDenoising(imgCorr, imgCorr, 6);  // Note: h = 3 (default), 5 (larger denoising with a minor loss in details), or 7 (works the best for the CLAHE-processed images of narrow contrast bandwidth)
-//            cv::imshow("Clahe Img Denoised", imgCorr);
-//            // Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
-//            // Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
-//            cv::threshold(imgCorr, imgCorr, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
-//            cv::imshow("Clahe+Th Img", imgCorr);
+                //// Execute one more iteration of GrabCut
+                //Mat maskRoi = mask(fgrect);
+                //imgFgRoi.setTo(cv::GC_BGD, maskProbBg);
+                //cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
 
-            Mat bgdModel, fgdModel;
-            Mat imgClr;
-            cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
-            cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
-            Mat maskFg;
-            //cv::compare(mask, cv::GC_PR_FGD, maskFg, cv::CMP_EQ);  // Retain only the foreground
-            cv::threshold(mask, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
-            img.copyTo(imgFg, maskFg);
-            cv::threshold(mask, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type
-            img.copyTo(imgFg, maskFg);
-            // Remove remained background
-            Mat imgFgRoi = imgFg(fgrect);
-            if(wndName) {
+                //// Find Contours
+                //vector<vector<cv::Point>>  conts;
+                //cv::findContours(imgFgRoi, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+                //cv::drawContours(imgFgRoi, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+
+                //imgFgOut = imgFg;
+                // Apply less strict foreground segmentation for the larva detection by FIMTrack
+                //Mat bgdModelLight, fgdModelLight;
+                //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
+                cv::grabCut(imgClr, maskLight, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
+                //cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+                //img.copyTo(imgFgOut, maskFg);
+                cv::threshold(maskLight, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type
+                //imgFgOut.setTo(cv::GC_FGD, maskFg);
+                img.copyTo(imgFgOut, maskFg);
+                // Remove remained background
+                imgFgRoi = imgFgOut(fgrect);
                 imgFgRoi.setTo(0, maskProbBg);
-                cv::imshow("ProbFgRoi", imgFgRoi);
-            }
-
-            //// Execute one more iteration of GrabCut
-            //Mat maskRoi = mask(fgrect);
-            //imgFgRoi.setTo(cv::GC_BGD, maskProbBg);
-            //cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
-
-            //// Find Contours
-            //vector<vector<cv::Point>>  conts;
-            //cv::findContours(imgFgRoi, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
-            //cv::drawContours(imgFgRoi, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
-
-            //imgFgOut = imgFg;
-            // Apply less strict foreground segmentation for the larva detection by FIMTrack
-            //Mat bgdModelLight, fgdModelLight;
-            //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
-            cv::grabCut(imgClr, maskLight, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
-            //cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
-            //img.copyTo(imgFgOut, maskFg);
-            cv::threshold(maskLight, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type
-            //imgFgOut.setTo(cv::GC_FGD, maskFg);
-            img.copyTo(imgFgOut, maskFg);
-            // Remove remained background
-            imgFgRoi = imgFgOut(fgrect);
-            imgFgRoi.setTo(0, maskProbBg);
-            if(wndName) {
-                Mat imgFgVis;  // Visualizing foreground image
-                imgFgOut.copyTo(imgFgVis);
-                cv::rectangle(imgFgVis, fgrect, cv::Scalar(0xFF), 1);
-                cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
-    //            cv::drawContours(maskProbFg, hulls, -1, cv::Scalar(255, 0, 0), 2, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
-                cv::imshow(wndName, imgFgVis);
-                //// Set image to black outside the mask
-                //bitwise_not(mask, mask);  // Invert the mask
-                //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
+                if(wndName) {
+                    Mat imgFgVis;  // Visualizing foreground image
+                    imgFgOut.copyTo(imgFgVis);
+                    cv::rectangle(imgFgVis, fgrect, cv::Scalar(0xFF), 1);
+                    cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+        //            cv::drawContours(maskProbFg, hulls, -1, cv::Scalar(255, 0, 0), 2, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+                    cv::imshow(wndName, imgFgVis);
+                    //// Set image to black outside the mask
+                    //bitwise_not(mask, mask);  // Invert the mask
+                    //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
+                }
             }
         }
 
