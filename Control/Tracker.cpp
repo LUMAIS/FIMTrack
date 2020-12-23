@@ -302,13 +302,16 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
 void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Backgroundsubtractor const& bs, Mat* previewImg, bool checkRoiBorders)
 {
     Mat fltImg;
+    static unsigned timePointPrev = 0;
     if(_larvaeContainer.dlcTrack.active && _larvaeContainer.dlcTrack.autoThreshold && timePoint < _larvaeContainer.dlcTrack.size()) {
         Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg,
-                                         img, _larvaeContainer.dlcTrack.larvae(timePoint), _larvaeContainer.dlcTrack.matchStat(), _larvaeContainer.dlcTrack.wndFgName);
+                                         img, _larvaeContainer.dlcTrack.larvae(timePoint), _larvaeContainer.dlcTrack.matchStat(),
+                                         timePointPrev + 1 == timePoint, _larvaeContainer.dlcTrack.wndFgName);
         printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
             , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
     }
     else fltImg = img;
+    timePointPrev = timePoint;
 
     contours_t contours;
     contours_t collidedContours;

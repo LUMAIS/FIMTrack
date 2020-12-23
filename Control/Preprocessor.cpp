@@ -131,7 +131,8 @@ void Preprocessor::borderRestriction(contours_t &contours, const Mat& img, bool 
 }
 
 void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Mat& imgFgOut,
-                                      const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat, const char* wndName)
+                                      const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat,
+                                      bool smooth, const char* wndName)
 {
     if(larvae.empty())
         return;
@@ -511,7 +512,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         // Note that the convex hull cause inclusion of some background pixel in the larva area.
         unsigned  ifgmin = 0;
         if(!binsFixed) {
-            count *= 0.06f;  // 0.04 .. 0.08; 0.2f
+            count *= 0.001f;  // 0.06f; 0.04 .. 0.08; 0.2f
             while(count > 0)
                 if(larvaHist[ifgmin] <  count * 2)
                     count -= larvaHist[ifgmin++];
@@ -522,8 +523,16 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         // Reset larvaHist
         larvaHist = {0};
 
-        grayThresh = ifgmin;
-        printf("%s> grayThresh: %d, binsFixed: %d, binMin1.x: %d, binMax1.x: %d\n", __FUNCTION__, grayThresh, binsFixed, binMin1.x, binMax1.x);
+        if(smooth) {
+            constexpr float rGtEvol = 0.36;
+            int resThresh = round(grayThresh * (1 - rGtEvol) + ifgmin * rGtEvol);
+            // Prevent sticking to the past value when the difference is 1
+            if(abs(resThresh - ifgmin) == 1 && resThresh == grayThresh)
+                grayThresh = ifgmin;
+            else grayThresh = resThresh;
+        } else grayThresh = ifgmin;
+        printf("%s> grayThresh: %d (from %d), binsFixed: %d, binMin1.x: %d, binMax1.x: %d\n", __FUNCTION__,
+            grayThresh, ifgmin, binsFixed, binMin1.x, binMax1.x);
     } else imgFgOut = img;
 
 //    // Evaluate brightness histograms
