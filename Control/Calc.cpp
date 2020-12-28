@@ -267,8 +267,7 @@ namespace Calc
         return abs(area);
     }
 
-    unsigned calcBrightness(QPolygonF const& polygon,
-                            Mat const & img)
+    unsigned calcBrightness(QPolygonF const& polygon, Mat const & img)
     {
         contour_t contour;
         contour.reserve(polygon.size());
@@ -281,11 +280,13 @@ namespace Calc
         const int  xEnd = brect.x + brect.width;
         const int  yEnd = brect.y + brect.height;
         unsigned brightness = 0;
-        for(int y = brect.y; y < yEnd; ++y)
-            for(int x = brect.x; x < xEnd; ++x)
+        for(int y = brect.y; y < yEnd; ++y) {
+            const uint8_t* bval = img.ptr<uint8_t>(y);
+            bval += brect.x;
+            for(int x = brect.x; x < xEnd; ++x, ++bval)
                 if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
-                    brightness += img.at<uchar>(y, x);
-
+                    brightness += *bval;  // img.at<uchar>(y, x);
+        }
         return brightness;
     }
 

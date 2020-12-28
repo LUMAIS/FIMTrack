@@ -137,9 +137,12 @@ void showGrabCutMask(const Mat& mask, const char* imgName) {
     constexpr uint8_t  CLR_FG = 0xFF;
 
     Mat img(mask.size(), CV_8UC1, Scalar(CLR_BG));
-    for(unsigned y = 0; y < mask.rows; ++y)
-        for(unsigned x = 0; x < mask.cols; ++x) {
-            uint8_t  c = mask.at<uint8_t>(y, x);
+    for(unsigned y = 0; y < mask.rows; ++y) {
+        uint8_t* bval = img.ptr<uint8_t>(y);
+        const uint8_t* clr = mask.ptr<uint8_t>(y);
+        for(unsigned x = 0; x < mask.cols; ++x, ++bval, ++clr) {
+            //uint8_t  c = mask.at<uint8_t>(y, x);
+            uint8_t  c = *clr;
             if(c == cv::GC_BGD)
                 continue;
             if(c == cv::GC_PR_BGD)
@@ -148,8 +151,10 @@ void showGrabCutMask(const Mat& mask, const char* imgName) {
                 c = CLR_FG_PROB;
             else // if(c == cv::GC_FGD)
                 c = CLR_FG;
-            img.at<uint8_t>(y, x) = c;
+            //img.at<uint8_t>(y, x) = c;
+            *bval = c;
         }
+    }
     cv::imshow(imgName, img);
 }
 
@@ -224,15 +229,15 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         //foreground = fgrect;
         //printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
 
-        Mat imgFg;  // Foreground image
+        Mat imgRoiFg;  // Foreground image
         {
             constexpr uint8_t  CLR_BG = 0;
             constexpr uint8_t  CLR_BG_PROB = 0x44;
             constexpr uint8_t  CLR_FG_PROB = 0xAA;
             constexpr uint8_t  CLR_FG = 0xFF;
 
-            Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
-            Mat maskLight;  // Lest strict mask for the FIMTrack processing
+            //Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
+            //Mat maskLight;  // Lest strict mask for the FIMTrack processing
             Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
 
             Mat maskProbFgOrig(maskProbBg.size(), CV_8UC1, Scalar(cv::GC_BGD));
@@ -266,7 +271,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //maskProbBg.setTo(cv::GC_BGD, maskProbBg);  // cv::GC_BGD, GC_PR_BGD
 
             // Form the mask
-            Mat maskRoi = mask(fgrect);
+            Mat maskRoi(fgrect.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
             //maskProbBg.copyTo(maskRoi, maskProbBg);
             //maskProbFg.copyTo(maskRoi, maskProbFgx);
             maskRoi.setTo(cv::GC_PR_BGD);  // GC_PR_FGD, GC_PR_BGD
@@ -325,7 +330,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 imgMask.setTo(CLR_FG, maskFg);  // Foreground;
             }
 
-            mask.copyTo(maskLight);
+            Mat maskRoiLight = maskRoi;
+            //mask.copyTo(maskLight);
             maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
             // Set CLAHE/TRIANGLEbased true background
             cv::threshold(claheRoi, maskProbBg, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
@@ -343,11 +349,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::imshow("3.ThrClaheMasks", imgMask);
             }
 
-            maskRoi = maskLight(fgrect);
-            maskRoi.setTo(cv::GC_PR_BGD, maskProbBgLight);
+            //maskRoiLight = maskLight(fgrect);
+            maskRoiLight.setTo(cv::GC_PR_BGD, maskProbBgLight);
             // Set CLAHE/TRIANGLEbased true background
-            maskRoi.setTo(cv::GC_PR_BGD, maskProbFgx);
-            maskRoi.setTo(cv::GC_BGD, maskProbBg);
+            maskRoiLight.setTo(cv::GC_PR_BGD, maskProbFgx);
+            maskRoiLight.setTo(cv::GC_BGD, maskProbBg);
 
             // Apply Grapcut to segment larva foreground vs background using hints
             {
@@ -370,72 +376,72 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                 Mat bgdModel, fgdModel;
                 Mat imgClr;
-                cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
+                cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
                 if(wndName)
-                     showGrabCutMask(mask(fgrect), "5.1.GcMask0");
-                cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
+                     showGrabCutMask(maskRoi, "5.1.GcMask0");
+                cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
                 if(wndName)
-                     showGrabCutMask(mask(fgrect), "5.2.GcMaskRes");
-                Mat maskFg;
-                //cv::compare(mask, cv::GC_PR_FGD, maskFg, cv::CMP_EQ);  // Retain only the foreground
-                cv::threshold(mask, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
-                img.copyTo(imgFg, maskFg);
-                cv::threshold(mask, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type
-                img.copyTo(imgFg, maskFg);
+                     showGrabCutMask(maskRoi, "5.2.GcMaskRes");
+                Mat maskRoiFg;
+                //cv::compare(maskRoi, cv::GC_PR_FGD, maskRoiFg, cv::CMP_EQ);  // Retain only the foreground
+                cv::threshold(maskRoi, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+                imgRoi.copyTo(imgRoiFg, maskRoiFg);
+                cv::threshold(maskRoi, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type
+                imgRoi.copyTo(imgRoiFg, maskRoiFg);
                 //// Visualize maskLight
                 //if(wndName)
                 //    showGrabCutMask(maskLight(fgrect), "6.1.GcMaskLightOrig");
-                //maskLight.setTo(cv::GC_PR_FGD, maskFg);  // Define foregroud as probable foreground on the maskLight
+                //maskLight.setTo(cv::GC_PR_FGD, maskRoiFg);  // Define foregroud as probable foreground on the maskLight
 
                 // Remove remained background
-                Mat imgFgRoi = imgFg(fgrect);
+                imgRoiFg.setTo(CLR_BG, maskProbBg);
                 if(wndName) {
-                    // cv::imshow("ProbFgRoi_loose", imgFgRoi);
-                    imgFgRoi.setTo(CLR_BG, maskProbBg);
-                    cv::imshow("4.ProbFgRoi", imgFgRoi);
+                    cv::imshow("4.ProbFgRoi", imgRoiFg);
                     //// Show probable background
-                    //Mat imgBgRoi = imgFgRoi;
+                    //Mat imgBgRoi = imgRoiFg;
                     //imgBgRoi.setTo(CLR_BG);
                     //imgBgRoi.setTo(CLR_BG_PROB, maskProbBg);
                     //cv::imshow("ProbBgRoi", imgBgRoi);
 
                     // Visualize maskLight
-                    showGrabCutMask(maskLight(fgrect), "6.2.GcMaskLight0");
+                    showGrabCutMask(maskRoiLight, "6.2.GcMaskLight0");
                 }
 
                 //// Execute one more iteration of GrabCut
                 //Mat maskRoi = mask(fgrect);
-                //imgFgRoi.setTo(cv::GC_BGD, maskProbBg);
+                //imgRoiFg.setTo(cv::GC_BGD, maskProbBg);
                 //cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
 
                 //// Find Contours
                 //vector<vector<cv::Point>>  conts;
-                //cv::findContours(imgFgRoi, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
-                //cv::drawContours(imgFgRoi, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+                //cv::findContours(imgRoiFg, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+                //cv::drawContours(imgRoiFg, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
 
-                //imgFgOut = imgFg;
+                imgFgOut = Mat(img.size(), CV_8UC1, Scalar(0));  // cv::GC_BGD
+                Mat imgRoiFgOut = imgFgOut(fgrect);
+                //imgFgOut = imgRoiFg;
                 // Apply less strict foreground segmentation for the larva detection by FIMTrack
                 //Mat bgdModelLight, fgdModelLight;
                 //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
-                cv::grabCut(imgClr, maskLight, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
+                cv::grabCut(imgClr, maskRoiLight, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
                 if(wndName)
-                    showGrabCutMask(maskLight(fgrect), "6.3.GcMaskLightRes");
-                cv::threshold(maskLight, maskFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+                    showGrabCutMask(maskRoiLight, "6.3.GcMaskLightRes");
+                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
                     //// Reduce holes in the final forground larva mask
                     //const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
                     //const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
-                    //cv::morphologyEx(maskFg, maskFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
+                    //cv::morphologyEx(maskRoiFg, maskRoiFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
                     //if(wndName)
-                    //    showGrabCutMask(maskFg(fgrect), "7.1.ProbFgResCl");
-                img.copyTo(imgFgOut, maskFg);
-                cv::threshold(maskLight, maskFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type
-                    //cv::morphologyEx(maskFg, maskFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
+                    //    showGrabCutMask(maskRoiFg, "7.1.ProbFgResCl");
+                imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
+                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type
+                    //cv::morphologyEx(maskRoiFg, maskRoiFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
                     //if(wndName)
-                    //    showGrabCutMask(maskFg(fgrect), "7.2.FgResCl");
-                img.copyTo(imgFgOut, maskFg);
+                    //    showGrabCutMask(maskRoiFg, "7.2.FgResCl");
+                imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
                 // Remove remained background
-                imgFgRoi = imgFgOut(fgrect);
-                imgFgRoi.setTo(cv::GC_BGD, maskProbBg);
+                //imgFgRoi = imgFgOut(fgrect);
+                imgRoiFgOut.setTo(cv::GC_BGD, maskProbBg);
                 if(wndName) {
                     Mat imgFgVis;  // Visualizing foreground image
                     imgFgOut.copyTo(imgFgVis);
@@ -451,16 +457,15 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         }
 
         // Evaluate brightness
-        const int  xEnd = fgrect.x + fgrect.width;
-        const int  yEnd = fgrect.y + fgrect.height;
         //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
-        for(int y = fgrect.y; y < yEnd; ++y) {
-            for(int x = fgrect.x; x < xEnd; ++x) {
+        for(int y = 0; y < imgRoiFg.cols; ++y) {
+            uint8_t* bval = imgRoiFg.ptr<uint8_t>(y);
+            for(int x = 0; x < imgRoiFg.rows; ++x, ++bval) {
                 //fprintf(stderr, "%u ", img.at<uchar>(y, x));
-                uint8_t  bval = imgFg.at<uint8_t>(y, x);  // img
+                //uint8_t  bval = imgRoiFg.at<uint8_t>(y, x);  // img
                 // Omit zero mask
-                if(bval)
-                    ++larvaHist[bval];  // brightness
+                if(*bval)
+                    ++larvaHist[*bval];  // brightness
             }
             //fprintf(stderr, "\n");
         }

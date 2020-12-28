@@ -53,10 +53,12 @@ RawLarva::RawLarva(const contour_t& _contour, Mat const & img)
     brightness = 0;
     //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
     for(int y = brect.y; y < yEnd; ++y) {
-        for(int x = brect.x; x < xEnd; ++x) {
+        const uint8_t* bval = img.ptr<uint8_t>(y);
+        bval += brect.x;
+        for(int x = brect.x; x < xEnd; ++x, ++bval) {
             //fprintf(stderr, "%u ", img.at<uchar>(y, x));
             if(pointPolygonTest(contour, Point2f(x, y), false) >= 0)
-                brightness += img.at<uchar>(y, x);
+                brightness += *bval;  // img.at<uchar>(y, x);
         }
         //fprintf(stderr, "\n");
     }
