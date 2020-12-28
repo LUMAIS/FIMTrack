@@ -333,8 +333,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
             // Set CLAHE/TRIANGLEbased true background
             cv::threshold(claheRoi, maskProbBg, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
-            if(wndName)
-                cv::imshow("BgTrianErdClahe", maskProbBg);
+            //if(wndName)
+            //    cv::imshow("3.1.BgTrianErdClahe", maskProbBg);
             // Note: reuse maskProbFgx for the probable extended background
             cv::dilate(maskProbBg, maskProbFgx, Mat(), Point(-1, -1), round(1 + matchStat.distAvg / 14.f), cv::BORDER_CONSTANT);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
             maskRoi.setTo(cv::GC_PR_BGD, maskProbFgx);
@@ -343,7 +343,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 //cv::imshow("ProbBgTrianErdClahe", maskProbFgx);
                 imgMask.setTo(CLR_BG_PROB, maskProbFgx);
                 imgMask.setTo(CLR_BG, maskProbBg);
-                cv::imshow("3.ThrClaheMasks", imgMask);
+                cv::imshow("3.2.ThrClaheMasks", imgMask);
             }
 
             //maskRoiLight = maskLight(fgrect);
@@ -376,14 +376,15 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
                 if(wndName)
                      showGrabCutMask(maskRoi, "4.1.GcMask0");
-                cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
+                cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
                 //if(wndName)
                 //     showGrabCutMask(maskRoi, "4.2.GcMaskRes");
                 Mat maskRoiFg;
                 //cv::compare(maskRoi, cv::GC_PR_FGD, maskRoiFg, cv::CMP_EQ);  // Retain only the foreground
+                // Note: imgRoiFg shuld be strict without probable background to evaluate brightness threshold accurate
                 cv::threshold(maskRoi, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
                 imgRoi.copyTo(imgRoiFg, maskRoiFg);
-                cv::threshold(maskRoi, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type; CV_THRESH_TOZERO_INV
+                cv::threshold(maskRoi, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
                 imgRoi.copyTo(imgRoiFg, maskRoiFg);
                 //// Visualize maskLight
                 //if(wndName)
@@ -391,7 +392,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 //maskLight.setTo(cv::GC_PR_FGD, maskRoiFg);  // Define foregroud as probable foreground on the maskLight
 
                 // Remove remained background
-                imgRoiFg.setTo(CLR_BG, maskProbBg);
+                imgRoiFg.setTo(0, maskProbBg);
                 if(wndName) {
                     cv::imshow("5.ProbFgRoi", imgRoiFg);
 
@@ -424,6 +425,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::grabCut(imgClr, maskRoiLight, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT | ; or cv::GC_EVAL
                 if(wndName)
                     showGrabCutMask(maskRoiLight, "6.3.GcMaskLightRes");
+                //// Note: maskRoiFg should be loose, including probable background to avoid cutting larvae: vid1-012
+                //imgRoi.copyTo(imgRoiFgOut, maskRoiLight);
                 cv::threshold(maskRoiLight, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
                     //// Reduce holes in the final forground larva mask
                     //const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
@@ -432,13 +435,12 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     //if(wndName)
                     //    showGrabCutMask(maskRoiFg, "7.1.ProbFgResCl");
                 imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
-                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type; CV_THRESH_TOZERO_INV
+                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
                     //cv::morphologyEx(maskRoiFg, maskRoiFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
                     //if(wndName)
                     //    showGrabCutMask(maskRoiFg, "7.2.FgResCl");
                 imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
                 // Remove remained background
-                //imgFgRoi = imgFgOut(fgrect);
                 imgRoiFgOut.setTo(cv::GC_BGD, maskProbBg);
                 if(wndName) {
                     Mat imgFgVis;  // Visualizing foreground image
@@ -456,14 +458,19 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
         // Evaluate brightness
         //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
+        //if(wndName)
+        //     cv::imshow("HistOrigin", imgRoiFg);  // Same as ProbFgRoi
+        unsigned  brightness = 0;
         for(int y = 0; y < imgRoiFg.cols; ++y) {
             uint8_t* bval = imgRoiFg.ptr<uint8_t>(y);
             for(int x = 0; x < imgRoiFg.rows; ++x, ++bval) {
                 //fprintf(stderr, "%u ", img.at<uchar>(y, x));
                 //uint8_t  bval = imgRoiFg.at<uint8_t>(y, x);  // img
                 // Omit zero mask
-                if(*bval)
+                if(*bval) {
                     ++larvaHist[*bval];  // brightness
+                    brightness += *bval;
+                }
             }
             //fprintf(stderr, "\n");
         }
@@ -568,7 +575,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         // Note that the convex hull cause inclusion of some background pixel in the larva area.
         unsigned  ifgmin = 0;
         if(!binsFixed) {
-            count *= 0.005f;  // 0.06f; 0.04 .. 0.08; 0.2f
+            // Note: grabcut may catch some baground, so basic filtering is required (~ .02-.04)
+            count *= 0.02f;  // 0.06f; 0.04 .. 0.08; 0.2f
             while(count > 0)
                 if(larvaHist[ifgmin] <  count * 2)
                     count -= larvaHist[ifgmin++];
@@ -587,8 +595,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 grayThresh = ifgmin;
             else grayThresh = resThresh;
         } else grayThresh = ifgmin;
-        printf("%s> grayThresh: %d (from %d), binsFixed: %d, binMin1.x: %d, binMax1.x: %d\n", __FUNCTION__,
-            grayThresh, ifgmin, binsFixed, binMin1.x, binMax1.x);
+        printf("%s> grayThresh: %d (from %d; bright: %u), binsFixed: %d, binMin1.x: %d, binMax1.x: %d\n", __FUNCTION__,
+            grayThresh, ifgmin, brightness, binsFixed, binMin1.x, binMax1.x);
+//        printf("%s> acc bright: %u for ROI (%d, %d)\n", __FUNCTION__,
+//            brightness, mgRoiFg.rows, mgRoiFg.cols);
     } else imgFgOut = img;
 
     // Evaluate brightness histograms and larva area
