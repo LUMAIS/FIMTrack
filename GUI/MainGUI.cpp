@@ -239,6 +239,10 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         //    , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
         Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg,
                                          img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat(), timePointPrev + 1 == timePoint, _dlcTrack.wndFgName);
+        if(AutoThresholdingLimits::iMinLarvaeArea && GeneralParameters::iMinLarvaeArea < AutoThresholdingLimits::iMinLarvaeArea)
+            GeneralParameters::iMinLarvaeArea = AutoThresholdingLimits::iMinLarvaeArea;
+        if(AutoThresholdingLimits::iMaxLarvaeArea && GeneralParameters::iMaxLarvaeArea > AutoThresholdingLimits::iMaxLarvaeArea)
+            GeneralParameters::iMaxLarvaeArea = AutoThresholdingLimits::iMaxLarvaeArea;
         printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
             , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
 

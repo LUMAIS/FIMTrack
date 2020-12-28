@@ -60,6 +60,12 @@ namespace GeneralParameters
     bool     defaultEnableDetailetOutput                            = bEnableDetailetOutput;
 }
 
+namespace AutoThresholdingLimits
+{
+    int      iMinLarvaeArea = 0;
+    int      iMaxLarvaeArea = 0;
+}
+
 namespace CameraParameter
 {
     QString  File                                                   = "";

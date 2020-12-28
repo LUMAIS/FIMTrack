@@ -99,6 +99,12 @@ namespace GeneralParameters
     extern bool     bEnableDetailetOutput;
 }
 
+namespace AutoThresholdingLimits
+{
+    extern int      iMinLarvaeArea;
+    extern int      iMaxLarvaeArea;
+}
+
 namespace CameraParameter
 {
     extern QString  File;

@@ -164,11 +164,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 {
     if(larvae.empty())
         return;
-    vector<float>  areas;
-    areas.reserve(larvae.size());
-    constexpr  unsigned  histSize = 256;
-    std::array<unsigned, histSize>  larvaHist = {0};
-    std::array<unsigned, histSize>  bgHist = {0};
 
     // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
     dlc::Larva::Points  hull;
@@ -202,6 +197,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     //assert(fgrect.x >= 0 && fgrect.y >= 0 && "Coordinates validation failed");
     //printf("%s> fgrect initial: %d + %d of %d, %d + %d of %f\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
 
+    constexpr  unsigned  histSize = 256;
+    std::array<unsigned, histSize>  larvaHist = {0};
+    std::array<unsigned, histSize>  bgHist = {0};
     // Note: grayThresh retains the former value if can't be defined
     //if(grayThresh > GeneralParameters::iGrayThreshold * 1.5f || grayThresh * 1.5f < GeneralParameters::iGrayThreshold)
     //    grayThresh = GeneralParameters::iGrayThreshold;
@@ -307,17 +305,17 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 // Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
                 // Note: reuse maskProbFgx for the true foreground
                 cv::threshold(claheRoi, maskProbFgx, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU; 0 o 8; 255 or 196
-                // Reduce holes in the forground larva mask
-                {
-                    const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
-                    const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
-                    //cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_OPEN, kernel, Point(-1, -1), opClaheIters);  // Iterations: 1, 2, opClaheIters
-                    if(wndName)
-                        cv::imshow("2.1.ProbFgClahe0", maskProbFgx);
-                    cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_CLOSE, morphKern);  // MORPH_OPEN
-                    if(wndName)
-                        cv::imshow("2.2.ProbFgClaheCl", maskProbFgx);
-                }
+                //if(wndName)
+                //    cv::imshow("2.1.ProbFgClahe", maskProbFgx);
+                //// Reduce holes in the forground larva mask
+                //{
+                //    const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
+                //    const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+                //    //cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_OPEN, kernel, Point(-1, -1), opClaheIters);  // Iterations: 1, 2, opClaheIters
+                //    cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_CLOSE, morphKern);  // MORPH_OPEN
+                //    if(wndName)
+                //        cv::imshow("2.2.ProbFgClaheCl", maskProbFgx);
+                //}
             maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // GC_PR_FGD, GC_FGD
             if(wndName)
                 imgMask.setTo(CLR_FG_PROB, maskProbFgx);  // Foreground;  CLR_FG_PROB, CLR_FG
@@ -335,9 +333,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
             // Set CLAHE/TRIANGLEbased true background
             cv::threshold(claheRoi, maskProbBg, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
-            //if(wndName) {
-            //    cv::imshow("BgTrianErdClahe", maskProbBg);
-            //}
+            if(wndName)
+                cv::imshow("BgTrianErdClahe", maskProbBg);
             // Note: reuse maskProbFgx for the probable extended background
             cv::dilate(maskProbBg, maskProbFgx, Mat(), Point(-1, -1), round(1 + matchStat.distAvg / 14.f), cv::BORDER_CONSTANT);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
             maskRoi.setTo(cv::GC_PR_BGD, maskProbFgx);
@@ -378,15 +375,15 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 Mat imgClr;
                 cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
                 if(wndName)
-                     showGrabCutMask(maskRoi, "5.1.GcMask0");
+                     showGrabCutMask(maskRoi, "4.1.GcMask0");
                 cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
-                if(wndName)
-                     showGrabCutMask(maskRoi, "5.2.GcMaskRes");
+                //if(wndName)
+                //     showGrabCutMask(maskRoi, "4.2.GcMaskRes");
                 Mat maskRoiFg;
                 //cv::compare(maskRoi, cv::GC_PR_FGD, maskRoiFg, cv::CMP_EQ);  // Retain only the foreground
                 cv::threshold(maskRoi, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
                 imgRoi.copyTo(imgRoiFg, maskRoiFg);
-                cv::threshold(maskRoi, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type
+                cv::threshold(maskRoi, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type; CV_THRESH_TOZERO_INV
                 imgRoi.copyTo(imgRoiFg, maskRoiFg);
                 //// Visualize maskLight
                 //if(wndName)
@@ -396,15 +393,16 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 // Remove remained background
                 imgRoiFg.setTo(CLR_BG, maskProbBg);
                 if(wndName) {
-                    cv::imshow("4.ProbFgRoi", imgRoiFg);
+                    cv::imshow("5.ProbFgRoi", imgRoiFg);
+
                     //// Show probable background
                     //Mat imgBgRoi = imgRoiFg;
                     //imgBgRoi.setTo(CLR_BG);
                     //imgBgRoi.setTo(CLR_BG_PROB, maskProbBg);
                     //cv::imshow("ProbBgRoi", imgBgRoi);
 
-                    // Visualize maskLight
-                    showGrabCutMask(maskRoiLight, "6.2.GcMaskLight0");
+                    //// Visualize maskLight
+                    //showGrabCutMask(maskRoiLight, "6.2.GcMaskLight0");
                 }
 
                 //// Execute one more iteration of GrabCut
@@ -423,7 +421,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 // Apply less strict foreground segmentation for the larva detection by FIMTrack
                 //Mat bgdModelLight, fgdModelLight;
                 //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
-                cv::grabCut(imgClr, maskRoiLight, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
+                cv::grabCut(imgClr, maskRoiLight, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT | ; or cv::GC_EVAL
                 if(wndName)
                     showGrabCutMask(maskRoiLight, "6.3.GcMaskLightRes");
                 cv::threshold(maskRoiLight, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
@@ -434,7 +432,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     //if(wndName)
                     //    showGrabCutMask(maskRoiFg, "7.1.ProbFgResCl");
                 imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
-                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type
+                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_BINARY_INV);  // thresh, maxval, type; CV_THRESH_TOZERO_INV
                     //cv::morphologyEx(maskRoiFg, maskRoiFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
                     //if(wndName)
                     //    showGrabCutMask(maskRoiFg, "7.2.FgResCl");
@@ -570,7 +568,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         // Note that the convex hull cause inclusion of some background pixel in the larva area.
         unsigned  ifgmin = 0;
         if(!binsFixed) {
-            count *= 0.001f;  // 0.06f; 0.04 .. 0.08; 0.2f
+            count *= 0.005f;  // 0.06f; 0.04 .. 0.08; 0.2f
             while(count > 0)
                 if(larvaHist[ifgmin] <  count * 2)
                     count -= larvaHist[ifgmin++];
@@ -593,11 +591,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             grayThresh, ifgmin, binsFixed, binMin1.x, binMax1.x);
     } else imgFgOut = img;
 
-//    // Evaluate brightness histograms
-//    // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
-//    for(const auto& hull: hulls) {
-//        // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
-//        areas.push_back(cv::contourArea(hull));
+    // Evaluate brightness histograms and larva area
+    // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
+    vector<float>  areas;
+    areas.reserve(larvae.size());
+    for(const auto& hull: hulls) {
+        // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
+        areas.push_back(cv::contourArea(hull));
 
 //        // Evaluate brightness
 //        const Rect  brect = boundingRect(hull);
@@ -618,19 +618,19 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //            //fprintf(stderr, "\n");
 //        }
 //        //fprintf(stderr, "area: %f, brightness: %u\n", area, bval);
-//    }
-//    cv::Scalar mean, stddev;
-//    cv::meanStdDev(areas, mean, stddev);
-//    std::sort(areas.begin(), areas.end());
-//    //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
-//    //const int  minSizeThreshLim = 0.56f * areas[0]
-//    const float  expPerimMin = matchStat.distAvg - 0.36f * matchStat.distStd;  // 0.3 .. 0.4
-//    //minSizeThresh = (max<int>(min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]), areas[0] * 0.36f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
-//    // Note: only DLC-tracked larvae are reqrured to be detected, so teh thresholds can be strict
-//    minSizeThresh = (max<int>(min<int>(mean[0] - stddev[0], 0.92f * areas[0]), areas[0] * 0.82f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
-//    const float  expPerimMax = matchStat.distAvg + 3.8f * matchStat.distStd;  // 3.6 .. 3.8
+    }
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(areas, mean, stddev);
+    std::sort(areas.begin(), areas.end());
+    //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
+    //const int  minSizeThreshLim = 0.56f * areas[0]
+    const float  expPerimMin = matchStat.distAvg - 0.36f * matchStat.distStd;  // 0.3 .. 0.4
+    //minSizeThresh = (max<int>(min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]), areas[0] * 0.36f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
+    // Note: only DLC-tracked larvae are reqrured to be detected, so the thresholds can be strict
+    minSizeThresh = (max<int>(min<int>(mean[0] - stddev[0], 0.92f * areas[0]), areas[0] * 0.82f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
+    const float  expPerimMax = matchStat.distAvg + 3.8f * matchStat.distStd;  // 3.6 .. 3.8
 ////    maxSizeThresh = (min<int>(max<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]), areas[areas.size() - 1] * 3.24f) + expPerimMax * expPerimMax) / 2;  // 2.5 area ~= 1.58 perimiter; 3.24 a ~= 1.8 p
-//    maxSizeThresh = (min<int>(max<int>(mean[0] + 2 * stddev[0], 2.5f * areas[areas.size() - 1]), areas[areas.size() - 1] * 3.24f) + expPerimMax * expPerimMax) / 2;  // 2.5 area ~= 1.58 perimiter; 3.24 a ~= 1.8 p
+    maxSizeThresh = (min<int>(max<int>(mean[0] + 2 * stddev[0], 2.5f * areas[areas.size() - 1]), areas[areas.size() - 1] * 3.24f) + expPerimMax * expPerimMax) / 2;  // 2.5 area ~= 1.58 perimiter; 3.24 a ~= 1.8 p
 //    //printf("%s> minSizeThresh: %d (meanSdev: %d, areaMinLim: %u)\n", __FUNCTION__
 //    //    , minSizeThresh, int(mean[0] - 4.f * stddev[0]), unsigned(0.56f * areas[0]));
 //    //printf("%s> maxSizeThresh: %d (meanSdev: %d, areaMaxLim: %u)\n", __FUNCTION__

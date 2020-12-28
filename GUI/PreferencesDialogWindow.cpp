@@ -59,11 +59,10 @@ bool PreferencesDialogWindow::checkParameters()
     if(this->ui->spinBoxBackgroundSubstractionToImage->value() > 0)
     {
         result = this->ui->spinBoxBackgroundSubstractionFromImage->value() < this->ui->spinBoxBackgroundSubstractionToImage->value();
-    }
-    
-    if(!result)
-    {
-        QMessageBox::warning(this,"Warning", QString("Parameter \"From Image\" can't be greater as Parameter \"To Image\"\n\"From Image\"\t= ").append(QString::number(this->ui->spinBoxBackgroundSubstractionFromImage->value())).append("\n\"To Image\"\t= ").append(QString::number(this->ui->spinBoxBackgroundSubstractionToImage->value())), QMessageBox::Ok);
+        if(!result)
+        {
+            QMessageBox::warning(this,"Warning", QString("Parameter \"From Image\" can't be greater as Parameter \"To Image\"\n\"From Image\"\t= ").append(QString::number(this->ui->spinBoxBackgroundSubstractionFromImage->value())).append("\n\"To Image\"\t= ").append(QString::number(this->ui->spinBoxBackgroundSubstractionToImage->value())), QMessageBox::Ok);
+        }
     }
     
     return result;
@@ -118,7 +117,11 @@ void PreferencesDialogWindow::readParameters()
     /* General Parameters */
     GeneralParameters::bSaveLog = this->ui->checkBoxSaveLog->isChecked();
     GeneralParameters::bEnableDetailetOutput = this->ui->checkBoxEnableDetailetOutput->isChecked();
-    
+
+    // Hard limits for the automatic thresholds
+    AutoThresholdingLimits::iMinLarvaeArea = this->ui->lnEdLarvaSzMin->text().toInt();
+    AutoThresholdingLimits::iMaxLarvaeArea = this->ui->lnEdLarvaSzMax->text().toInt();
+
     /* Camera Parameters */
     CameraParameter::File = this->ui->labelCameraParameter->text();
     CameraParameter::dFPS = this->ui->doubleSpinBoxCameraParameterFSP->value();
@@ -168,7 +171,11 @@ void PreferencesDialogWindow::setParameters()
     /* General Parameters */
     this->ui->checkBoxSaveLog->setChecked(GeneralParameters::bSaveLog);
     this->ui->checkBoxEnableDetailetOutput->setChecked(GeneralParameters::bEnableDetailetOutput);
-    
+
+    // Hard limits for the automatic thresholds
+    this->ui->lnEdLarvaSzMin->setText(QString::number(AutoThresholdingLimits::iMinLarvaeArea));
+    this->ui->lnEdLarvaSzMax->setText(QString::number(AutoThresholdingLimits::iMaxLarvaeArea));
+
     /* Camera Parameters */
     this->ui->labelCameraParameter->setText(CameraParameter::File);
     this->ui->doubleSpinBoxCameraParameterFSP->setValue(CameraParameter::dFPS);
