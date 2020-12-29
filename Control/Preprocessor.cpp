@@ -328,7 +328,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 imgMask.setTo(CLR_FG, maskFg);  // Foreground;
             }
 
-            Mat maskRoiLight = maskRoi;
+            Mat maskRoiLight;
+            maskRoi.copyTo(maskRoiLight);
             //mask.copyTo(maskLight);
             maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
             // Set CLAHE/TRIANGLEbased true background
@@ -416,7 +417,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 //cv::findContours(imgRoiFg, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
                 //cv::drawContours(imgRoiFg, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
 
-                imgFgOut = Mat(img.size(), CV_8UC1, Scalar(0));  // cv::GC_BGD
+                imgFgOut = Mat(img.size(), img.type(), Scalar(0));  // cv::GC_BGD
                 Mat imgRoiFgOut = imgFgOut(fgrect);
                 //imgFgOut = imgRoiFg;
                 // Apply less strict foreground segmentation for the larva detection by FIMTrack
@@ -460,20 +461,36 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
         //if(wndName)
         //     cv::imshow("HistOrigin", imgRoiFg);  // Same as ProbFgRoi
-        unsigned  brightness = 0;
-        for(int y = 0; y < imgRoiFg.cols; ++y) {
+        //unsigned  brightness = 0;
+        for(int y = 0; y < imgRoiFg.rows; ++y) {
             uint8_t* bval = imgRoiFg.ptr<uint8_t>(y);
-            for(int x = 0; x < imgRoiFg.rows; ++x, ++bval) {
+            for(int x = 0; x < imgRoiFg.cols; ++x, ++bval) {
                 //fprintf(stderr, "%u ", img.at<uchar>(y, x));
                 //uint8_t  bval = imgRoiFg.at<uint8_t>(y, x);  // img
                 // Omit zero mask
                 if(*bval) {
                     ++larvaHist[*bval];  // brightness
-                    brightness += *bval;
+                    //brightness += *bval;
                 }
             }
             //fprintf(stderr, "\n");
         }
+
+        ////  Check the histogram change (manually on the same frame) compared to the previous run
+        //static Mat imgRoiFgPrev;
+        //{
+        //    if(imgRoiFg.size() != imgRoiFgPrev.size())
+        //        imgRoiFg.copyTo(imgRoiFgPrev);
+        //    Mat imgRoiRes;
+        //    cv::absdiff(imgRoiFg, imgRoiFgPrev, imgRoiRes);
+        //    cv::imshow("FrameDiff: ", imgRoiRes);
+        //    printf("%s> acc bright: %u, diff pix: %d / %d, diff: %f (res: %f)\n", __FUNCTION__,
+        //        brightness, countNonZero(imgRoiRes), imgRoiRes.rows * imgRoiRes.cols, cv::sum(imgRoiFg) - cv::sum(imgRoiFgPrev), cv::sum(imgRoiRes));
+        //    cv::threshold(imgRoiRes, imgRoiRes, 0, 255, cv::THRESH_BINARY);
+        //    cv::imshow("MaskFrameDiff: ", imgRoiRes);
+        //}
+        //imgRoiFg.copyTo(imgRoiFgPrev);
+
         // Calculate the number of values in foreground
         int32_t count = 0;
         unsigned  hvMax = 0;  // Global absolute max
@@ -576,7 +593,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         unsigned  ifgmin = 0;
         if(!binsFixed) {
             // Note: grabcut may catch some baground, so basic filtering is required (~ .02-.04)
-            count *= 0.02f;  // 0.06f; 0.04 .. 0.08; 0.2f
+            count *= 0.005f;  // 0.06f; 0.04 .. 0.08; 0.2f
             while(count > 0)
                 if(larvaHist[ifgmin] <  count * 2)
                     count -= larvaHist[ifgmin++];
@@ -595,10 +612,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 grayThresh = ifgmin;
             else grayThresh = resThresh;
         } else grayThresh = ifgmin;
-        printf("%s> grayThresh: %d (from %d; bright: %u), binsFixed: %d, binMin1.x: %d, binMax1.x: %d\n", __FUNCTION__,
-            grayThresh, ifgmin, brightness, binsFixed, binMin1.x, binMax1.x);
-//        printf("%s> acc bright: %u for ROI (%d, %d)\n", __FUNCTION__,
-//            brightness, mgRoiFg.rows, mgRoiFg.cols);
+        printf("%s> grayThresh: %d (from %d), binsFixed: %d, binMin1.x: %d, binMax1.x: %d\n", __FUNCTION__,
+            grayThresh, ifgmin, binsFixed, binMin1.x, binMax1.x);
     } else imgFgOut = img;
 
     // Evaluate brightness histograms and larva area
