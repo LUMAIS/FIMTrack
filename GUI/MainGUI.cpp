@@ -238,7 +238,7 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         //    , __FUNCTION__, timePoint, _dlcTrack.size()
         //    , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
         Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg,
-                                         img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat(), timePointPrev + 1 == timePoint, _dlcTrack.wndFgName);
+                                         img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat(), timePointPrev + 1 == timePoint, _dlcTrack.wndFgName, true);
         if(AutoThresholdingLimits::iMinLarvaeArea && GeneralParameters::iMinLarvaeArea < AutoThresholdingLimits::iMinLarvaeArea)
             GeneralParameters::iMinLarvaeArea = AutoThresholdingLimits::iMinLarvaeArea;
         if(AutoThresholdingLimits::iMaxLarvaeArea && GeneralParameters::iMaxLarvaeArea > AutoThresholdingLimits::iMaxLarvaeArea)

@@ -60,10 +60,12 @@ public:
      * @param matchStat  - matching statistics
      * @param smooth  - smooth grayThresh relying on previous values (shuould be true only for the subsequently processing frames)
      * @param wndName  - window name to display foreground ROI
+     * @param extraVis  - extra visualization for the visual tracing and debugging, applicable only when wndName. WARNING: should not be used in the tracking mode (and other frequent subsequent calls) because of the OpenCV incompability with (QT) multithreading
      */
     static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Mat& imgFg,
-                                          const cv::Mat& imgGray, const dlc::Larvae& larvae,
-                                          const dlc::MatchStat& matchStat, bool smooth=false, const char* wndName=nullptr);
+                                   const cv::Mat& imgGray, const dlc::Larvae& larvae,
+                                   const dlc::MatchStat& matchStat, bool smooth=false,
+                                   const char* wndName=nullptr, bool extraVis=true);
 
     /**
      * @brief preprocessPreview calculates all contours necessary for preview. The image (src) is thresholded and the resultant binary
@@ -93,6 +95,9 @@ public:
     
 private:
     Preprocessor();
+
+    ~Preprocessor();
+
     /**
      * @brief graythresh calculates a binary image from src (8UC1) and stores it in dst (all pixel > thresh are set to 255)
      * @param src the input image (8U grayscale)
