@@ -27,9 +27,9 @@ Details can be found in
 
 For more informations contact fim[AT]uni-muenster[DOT]de
 
-This FIMTrack fork extends the original version with some additional functionality, including the integration of tracking data from [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut).  
+This FIMTrack fork extends the original version with some additional functionality like automatic adjusting of thresholds for each frame based on assisted data (e.g., [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut tacking), visual tracing and debugging of the thresholds inference, import of video in addition to image loading, output results extension.  
 By Artem Lutov &lt;&#108;ua&#64;&#108;utan&#46;ch&gt;  
-Organizations: [UNIFR](https://www.unifr.ch), [Lutov Analytics](https://lutan.ch/)
+Affiliation: [UNIFR](https://www.unifr.ch), [Lutov Analytics](https://lutan.ch/)
 
 ## Known Forks
 
