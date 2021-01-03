@@ -275,18 +275,16 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             constexpr uint8_t  CLR_FG_PROB = 0xAA;
             constexpr uint8_t  CLR_FG = 0xFF;
 
-            //Mat mask(img.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
-            //Mat maskLight;  // Lest strict mask for the FIMTrack processing
-            Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0x77));
+            Mat maskProbBg(fgrect.size(), CV_8UC1, Scalar(0xFF));  // Filled mask
 
-            Mat maskProbFgOrig(maskProbBg.size(), CV_8UC1, Scalar(cv::GC_BGD));
+            Mat maskProbFgOrig(maskProbBg.size(), CV_8UC1, Scalar(0));  // Empty mask
             //cv::drawContours(maskProbFgOrig, hulls, -1, Scalar(cv::GC_PR_FGD), cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
             // Note: the color of nested (overlaping) contours is inverted, so each hull should be drawn separately
             for(const auto& hull: hulls)
                 cv::drawContours(maskProbFgOrig, vector<dlc::Larva::Points>(1, hull), 0, cv::GC_PR_FGD, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-fgrect.x, -fgrect.y)); // Scalar(cv::GC_PR_FGD)
             // Dilate convex to extract probable foreground
             Mat maskProbFgx;
-            const int  opIters = round(1 + matchStat.distAvg / 4.f);  // Operation iterations
+            const unsigned  opIters = round(1 + matchStat.distAvg / 4.f);  // Operation iterations
             cv::dilate(maskProbFgOrig, maskProbFgx, Mat(), Point(-1, -1), opIters, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
             Mat imgMask(maskProbFgx.size(), CV_8UC1, Scalar(CLR_BG));  // Visualizing combined masks
             if(extraVis)
@@ -294,10 +292,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             Mat maskFg;
             // Erode excluded convex hulls from the mask
             cv::erode(maskProbFgOrig, maskFg, Mat(), Point(-1, -1), opIters);  // 4..6..8; Iterations: ~= Ravg / 8 + 1
+            // Use stricter processing for more accurate results if possible (almost always)
+            if(cv::countNonZero(maskFg) <= opIters * opIters)
+                maskProbFgOrig.copyTo(maskFg);
             if(extraVis)
                 imgMask.setTo(CLR_FG, maskFg);
-            maskProbBg.setTo(cv::GC_BGD, maskProbFgx);  // cv::GC_BGD, GC_PR_BGD
-            Mat maskProbBgLight;
+            maskProbBg.setTo(0, maskProbFgx);  // Exclude foreground
+            Mat maskProbBgLight;  // Lest strict mask of the probable background
             maskProbBg.copyTo(maskProbBgLight);
             // Erode convex to extract Probable background
             //Mat maskProbBg(maskProbFg.size(), CV_8UC1, Scalar(0xFF));
@@ -310,10 +311,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //maskProbBg.setTo(cv::GC_BGD, maskProbBg);  // cv::GC_BGD, GC_PR_BGD
 
             // Form the mask
-            Mat maskRoi(fgrect.size(), CV_8UC1, Scalar(cv::GC_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
+            Mat maskRoi(fgrect.size(), CV_8UC1, Scalar(cv::GC_PR_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
             //maskProbBg.copyTo(maskRoi, maskProbBg);
             //maskProbFg.copyTo(maskRoi, maskProbFgx);
-            maskRoi.setTo(cv::GC_PR_BGD);  // GC_PR_FGD, GC_PR_BGD
             //maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // cv::GC_PR_FGD, GC_FGD
             if(extraVis)
                 imgMask.setTo(CLR_BG_PROB);  // Probable Background / Foreground; CLR_FG_PROB, CLR_BG_PROB
@@ -342,164 +342,205 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //cv::adaptiveThreshold(imgCorr, imgCorr, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 1 + matchStat.distAvg / 4.f, 2)
 
             // Erode excessive probable foreground
-            const int  opClaheIters = 1 + round(matchStat.distAvg / 20.f);  // Operation iterations; 24 -> 12 for FG; 16 -> 8
+            const unsigned  opClaheIters = 1 + round(matchStat.distAvg / 20.f);  // Operation iterations; 24 -> 12 for FG; 16 -> 8
             // 12..16 for probable foreground; 6 .. 8 for the foreground
             cv::erode(maskProbFgx, maskProbFgx, Mat(), Point(-1, -1), opClaheIters);  // 4..6, 8..12; Iterations: ~= Ravg / 8 + 1
-                // Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
-                // Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
-                // Note: reuse maskProbFgx for the true foreground
-                cv::threshold(claheRoi, maskProbFgx, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU; 0 o 8; 255 or 196
-                //if(extraVis)
-                //    showCvWnd("2.1.ProbFgClahe", maskProbFgx, cvWnds);
-                //// Reduce holes in the forground larva mask
-                //{
-                //    const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
-                //    const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
-                //    //cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_OPEN, kernel, Point(-1, -1), opClaheIters);  // Iterations: 1, 2, opClaheIters
-                //    cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_CLOSE, morphKern);  // MORPH_OPEN
-                //    if(extraVis)
-                //        showCvWnd("2.2.ProbFgClaheCl", maskProbFgx, cvWnds);
-                //}
-            maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // GC_PR_FGD, GC_FGD
-            if(extraVis)
-                imgMask.setTo(CLR_FG_PROB, maskProbFgx);  // Foreground;  CLR_FG_PROB, CLR_FG
-            cv::erode(maskProbFgx, maskProbFgx, Mat(), Point(-1, -1), opClaheIters);  // 4..6, 8..12; Iterations: ~= Ravg / 8 + 1
-            maskRoi.setTo(cv::GC_FGD, maskProbFgx);  // GC_PR_FGD, GC_FGD
-            maskRoi.setTo(cv::GC_FGD, maskFg);  // Foreground
-            if(extraVis) {
-                //showCvWnd("ProbFgOtsuErdClahe", maskProbFgx, cvWnds);
-                imgMask.setTo(CLR_FG, maskProbFgx);  // Foreground;  CLR_FG_PROB, CLR_FG
-                imgMask.setTo(CLR_FG, maskFg);  // Foreground;
-            }
 
-            Mat maskRoiLight;
-            maskRoi.copyTo(maskRoiLight);
-            //mask.copyTo(maskLight);
-            maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
-            // Set CLAHE/TRIANGLEbased true background
-            cv::threshold(claheRoi, maskProbBg, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+            // Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
+            // Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
+            // Note: reuse maskProbFgx for the true foreground
+            cv::threshold(claheRoi, maskProbFgx, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU; 0 o 8; 255 or 196
             //if(extraVis)
-            //    showCvWnd("3.1.BgTrianErdClahe", maskProbBg, cvWnds);
-            // Note: reuse maskProbFgx for the probable extended background
-            cv::dilate(maskProbBg, maskProbFgx, Mat(), Point(-1, -1), round(1 + matchStat.distAvg / 14.f), cv::BORDER_CONSTANT);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
-            maskRoi.setTo(cv::GC_PR_BGD, maskProbFgx);
-            maskRoi.setTo(cv::GC_BGD, maskProbBg);
-            if(extraVis) {
-                //showCvWnd("ProbBgTrianErdClahe", maskProbFgx, cvWnds);
-                imgMask.setTo(CLR_BG_PROB, maskProbFgx);
-                imgMask.setTo(CLR_BG, maskProbBg);
-                //fputs("DBG: 3.2.ThrClaheMasks\n", stderr);
-                showCvWnd("3.2.ThrClaheMasks", imgMask, cvWnds);
-            }
+            //    showCvWnd("2.1.ProbFgClahe", maskProbFgx, cvWnds);
+            //// Reduce holes in the forground larva mask
+            //{
+            //    const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
+            //    const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+            //    //cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_OPEN, kernel, Point(-1, -1), opClaheIters);  // Iterations: 1, 2, opClaheIters
+            //    cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_CLOSE, morphKern);  // MORPH_OPEN
+            //    if(extraVis)
+            //        showCvWnd("2.2.ProbFgClaheCl", maskProbFgx, cvWnds);
+            //}
 
-            //maskRoiLight = maskLight(fgrect);
-            maskRoiLight.setTo(cv::GC_PR_BGD, maskProbBgLight);
-            // Set CLAHE/TRIANGLEbased true background
-            maskRoiLight.setTo(cv::GC_PR_BGD, maskProbFgx);
-            maskRoiLight.setTo(cv::GC_BGD, maskProbBg);
-
-            // Apply Grapcut to segment larva foreground vs background using hints
-            {
-                //showCvWnd("Orig Img", img, cvWnds);
-                //// Apply Contrast Limited Adaptive Histogram Equalization before GrabCut
-                //cv::Ptr<CLAHE> clahe = createCLAHE();
-                ////const int  grain = 1 + matchStat.distAvg / 2.f;
-                ////clahe->setTilesGridSize(cv::Size(grain, grain));
-                //clahe->setClipLimit(8);  // 40; 2,4, 32; 16; 8
-                //Mat imgCorr;  // Image with the corrected contrast
-                //clahe->apply(img, imgCorr);
-                //showCvWnd("Clahe Img", imgCorr, cvWnds);
-                //// Remove noise if any
-                //cv::fastNlMeansDenoising(imgCorr, imgCorr, 6);  // Note: h = 3 (default), 5 (larger denoising with a minor loss in details), or 7 (works the best for the CLAHE-processed images of narrow contrast bandwidth)
-                //showCvWnd("Clahe Img Denoised", imgCorr, cvWnds);
-                //// Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
-                //// Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
-                //cv::threshold(imgCorr, imgCorr, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
-                //showCvWnd("Clahe+Th Img", imgCorr, cvWnds);
-
-                Mat bgdModel, fgdModel;
-                Mat imgClr;
-                cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
+            const unsigned  probFgxArea = cv::countNonZero(maskProbFgx);
+            if(probFgxArea > opClaheIters * opClaheIters && probFgxArea < maskProbFgx.rows * maskProbFgx.cols - opClaheIters * opClaheIters) {
+                maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // GC_PR_FGD, GC_FGD
                 if(extraVis)
-                     showGrabCutMask(maskRoi, "4.1.GcMask0", cvWnds);
-                cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
-                //if(extraVis)
-                //     showGrabCutMask(maskRoi, "4.2.GcMaskRes", cvWnds);
-                Mat maskRoiFg;
-                //cv::compare(maskRoi, cv::GC_PR_FGD, maskRoiFg, cv::CMP_EQ);  // Retain only the foreground
-                // Note: imgRoiFg shuld be strict without probable background to evaluate brightness threshold accurate
-                cv::threshold(maskRoi, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
-                imgRoi.copyTo(imgRoiFg, maskRoiFg);
-                cv::threshold(maskRoi, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
-                imgRoi.copyTo(imgRoiFg, maskRoiFg);
-                //// Visualize maskLight
-                //if(extraVis)
-                //    showGrabCutMask(maskLight(fgrect), "6.1.GcMaskLightOrig", cvWnds);
-                //maskLight.setTo(cv::GC_PR_FGD, maskRoiFg);  // Define foregroud as probable foreground on the maskLight
-
-                // Remove remained background
-                imgRoiFg.setTo(0, maskProbBg);
+                    imgMask.setTo(CLR_FG_PROB, maskProbFgx);  // Foreground;  CLR_FG_PROB, CLR_FG
+                cv::erode(maskProbFgx, maskProbFgx, Mat(), Point(-1, -1), opClaheIters);  // 4..6, 8..12; Iterations: ~= Ravg / 8 + 1
+                // Note: reuse maskProbFgx for the merge of reducedmaskProbFgx and maskFg as true foreground
+                //printf("%s> fgdCLAHE: %d, fgdMask: %d\n", __FUNCTION__, cv::countNonZero(maskProbFgx), cv::countNonZero(maskFg));
+                cv::bitwise_or(maskProbFgx, maskFg, maskProbFgx);  // Note: maskFg operates with GC_FGD, but maskProbFgx operated with 0xFF
+                maskRoi.setTo(cv::GC_FGD, maskProbFgx);  // Foreground; GC_PR_FGD, GC_FGD
+                //maskRoi.setTo(cv::GC_FGD, maskFg);  // Foreground
                 if(extraVis) {
-                    showCvWnd("5.ProbFgRoi", imgRoiFg, cvWnds);
-
-                    //// Show probable background
-                    //Mat imgBgRoi = imgRoiFg;
-                    //imgBgRoi.setTo(CLR_BG);
-                    //imgBgRoi.setTo(CLR_BG_PROB, maskProbBg);
-                    //showCvWnd("ProbBgRoi", imgBgRoi, cvWnds);
-
-                    //// Visualize maskLight
-                    //showGrabCutMask(maskRoiLight, "6.2.GcMaskLight0", cvWnds);
+                    //showCvWnd("ProbFgOtsuErdClahe", maskProbFgx, cvWnds);
+                    imgMask.setTo(CLR_FG, maskProbFgx);  // Foreground;  CLR_FG_PROB, CLR_FG
+                    //imgMask.setTo(CLR_FG, maskFg);  // Foreground;
                 }
 
-                //// Execute one more iteration of GrabCut
-                //Mat maskRoi = mask(fgrect);
-                //imgRoiFg.setTo(cv::GC_BGD, maskProbBg);
-                //cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
+                Mat maskRoiLight;
+                maskRoi.copyTo(maskRoiLight);
+                //mask.copyTo(maskLight);
+                maskRoi.setTo(cv::GC_PR_BGD, maskProbBg);  // GC_PR_BGD, GC_BGD
+                // Set CLAHE/TRIANGLEbased true background
+                cv::threshold(claheRoi, maskProbBg, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+                //if(extraVis)
+                //    showCvWnd("3.1.BgTrianErdClahe", maskProbBg, cvWnds);
+                // Note: reuse maskProbFgOrig for the probable extended background
+                cv::dilate(maskProbBg, maskProbFgOrig, Mat(), Point(-1, -1), round(1 + matchStat.distAvg / 14.f), cv::BORDER_CONSTANT);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
 
-                //// Find Contours
-                //vector<vector<cv::Point>>  conts;
-                //cv::findContours(imgRoiFg, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
-                //cv::drawContours(imgRoiFg, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+                // Ensure that the probable background does not the cover probable probable foreground with foreground, otherwise retain the foreground
+                // Note: reuse maskFg
+                cv::subtract(maskProbFgx, maskProbFgOrig, maskFg);
+                if(cv::countNonZero(maskFg) <= opClaheIters * opClaheIters) {
+                    //printf("WARNING %s> backgrounds are reducing with covered foreground (%d): probBgd: %d, probBgdLight: %d, bgd: %d\n", __FUNCTION__,
+                    //    cv::countNonZero(maskProbFgx), cv::countNonZero(maskProbFgOrig), cv::countNonZero(maskProbBgLight), cv::countNonZero(maskProbBg));
+                    maskProbFgx.setTo(0xFF, maskProbFgx); // Ensure that values are 0xFF rather than GC_FGD=1
+                    maskProbFgOrig -= maskProbFgx;
+                    maskProbBgLight -= maskProbFgx;
+                    maskProbBg -= maskProbFgx;
+                    //showCvWnd("2D.1 maskProbFgx", maskProbFgx, cvWnds);
+                    //showCvWnd("2D.2 maskProbFgOrig", maskProbFgOrig, cvWnds);
+                    //showCvWnd("2D.3 maskProbBgLight", maskProbBgLight, cvWnds);
+                    //showCvWnd("2D.4 maskProbBg", maskProbBg, cvWnds);
+                    //printf("WARNING %s> background are reduced with covered foreground (%d): probBgd: %d, probBgdLight: %d, bgd: %d\n", __FUNCTION__,
+                    //    cv::countNonZero(maskProbFgx), cv::countNonZero(maskProbFgOrig), cv::countNonZero(maskProbBgLight), cv::countNonZero(maskProbBg));
+                    printf("WARNING %s> backgrounds are reduced with covered foreground, fg area: %d of %d\n", __FUNCTION__,
+                        cv::countNonZero(maskProbFgx), maskProbFgx.rows * maskProbFgx.cols);
+                }
 
-                imgFgOut = Mat(img.size(), img.type(), Scalar(0));  // cv::GC_BGD
-                Mat imgRoiFgOut = imgFgOut(fgrect);
-                //imgFgOut = imgRoiFg;
-                // Apply less strict foreground segmentation for the larva detection by FIMTrack
-                //Mat bgdModelLight, fgdModelLight;
-                //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
-                cv::grabCut(imgClr, maskRoiLight, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT | ; or cv::GC_EVAL
-                if(extraVis)
-                    showGrabCutMask(maskRoiLight, "6.3.GcMaskLightRes", cvWnds);
-                //// Note: maskRoiFg should be loose, including probable background to avoid cutting larvae: vid1-012
-                //imgRoi.copyTo(imgRoiFgOut, maskRoiLight);
-                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+                maskRoi.setTo(cv::GC_PR_BGD, maskProbFgOrig);
+                maskRoi.setTo(cv::GC_BGD, maskProbBg);
+                if(extraVis) {
+                    //showCvWnd("ProbBgTrianErdClahe", maskProbFgOrig, cvWnds);
+                    imgMask.setTo(CLR_BG_PROB, maskProbFgOrig);
+                    imgMask.setTo(CLR_BG, maskProbBg);
+                    //fputs("DBG: 3.2.ThrClaheMasks\n", stderr);
+                    showCvWnd("3.2.ThrClaheMasks", imgMask, cvWnds);
+                }
+
+                //maskRoiLight = maskLight(fgrect);
+                maskRoiLight.setTo(cv::GC_PR_BGD, maskProbBgLight);
+                // Set CLAHE/TRIANGLE based true background
+                maskRoiLight.setTo(cv::GC_BGD, maskProbBg);
+
+                // Apply Grapcut to segment larva foreground vs background using hints
+                {
+                    //showCvWnd("Orig Img", img, cvWnds);
+                    //// Apply Contrast Limited Adaptive Histogram Equalization before GrabCut
+                    //cv::Ptr<CLAHE> clahe = createCLAHE();
+                    ////const int  grain = 1 + matchStat.distAvg / 2.f;
+                    ////clahe->setTilesGridSize(cv::Size(grain, grain));
+                    //clahe->setClipLimit(8);  // 40; 2,4, 32; 16; 8
+                    //Mat imgCorr;  // Image with the corrected contrast
+                    //clahe->apply(img, imgCorr);
+                    //showCvWnd("Clahe Img", imgCorr, cvWnds);
+                    //// Remove noise if any
+                    //cv::fastNlMeansDenoising(imgCorr, imgCorr, 6);  // Note: h = 3 (default), 5 (larger denoising with a minor loss in details), or 7 (works the best for the CLAHE-processed images of narrow contrast bandwidth)
+                    //showCvWnd("Clahe Img Denoised", imgCorr, cvWnds);
+                    //// Adaprive optimal thresholds: THRESH_OTSU, THRESH_TRIANGLE
+                    //// Identifies true background (THRESH_BINARY_INV | THRESH_TRIANGLE), and propable foreground (THRESH_BINARY | THRESH_OTSU)!
+                    //cv::threshold(imgCorr, imgCorr, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+                    //showCvWnd("Clahe+Th Img", imgCorr, cvWnds);
+
+                    Mat bgdModel, fgdModel;
+                    Mat imgClr;
+                    cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
+                    if(extraVis)
+                         showGrabCutMask(maskRoi, "4.1.GcMask0", cvWnds);
+                    try {
+                        cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
+                    } catch(cv::Exception& err) {
+                        printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
+                    }
+
+                    //if(extraVis)
+                    //     showGrabCutMask(maskRoi, "4.2.GcMaskRes", cvWnds);
+                    Mat maskRoiFg;
+                    //cv::compare(maskRoi, cv::GC_PR_FGD, maskRoiFg, cv::CMP_EQ);  // Retain only the foreground
+                    // Note: imgRoiFg shuld be strict without probable background to evaluate brightness threshold accurate
+                    cv::threshold(maskRoi, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+                    imgRoi.copyTo(imgRoiFg, maskRoiFg);
+                    cv::threshold(maskRoi, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
+                    imgRoi.copyTo(imgRoiFg, maskRoiFg);
+                    //// Visualize maskLight
+                    //if(extraVis)
+                    //    showGrabCutMask(maskLight(fgrect), "6.1.GcMaskLightOrig", cvWnds);
+                    //maskLight.setTo(cv::GC_PR_FGD, maskRoiFg);  // Define foregroud as probable foreground on the maskLight
+
+                    // Remove remained background
+                    imgRoiFg.setTo(0, maskProbBg);
+                    if(extraVis) {
+                        showCvWnd("5.ProbFgRoi", imgRoiFg, cvWnds);
+
+                        //// Show probable background
+                        //Mat imgBgRoi = imgRoiFg;
+                        //imgBgRoi.setTo(CLR_BG);
+                        //imgBgRoi.setTo(CLR_BG_PROB, maskProbBg);
+                        //showCvWnd("ProbBgRoi", imgBgRoi, cvWnds);
+
+                        //// Visualize maskLight
+                        //showGrabCutMask(maskRoiLight, "6.2.GcMaskLight0", cvWnds);
+                    }
+
+                    //// Execute one more iteration of GrabCut
+                    //Mat maskRoi = mask(fgrect);
+                    //imgRoiFg.setTo(cv::GC_BGD, maskProbBg);
+                    //cv::grabCut(imgClr, mask, fgrect, bgdModel, fgdModel, 1, GC_INIT_WITH_RECT | cv::GC_INIT_WITH_MASK);
+
+                    //// Find Contours
+                    //vector<vector<cv::Point>>  conts;
+                    //cv::findContours(imgRoiFg, conts, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+                    //cv::drawContours(imgRoiFg, conts, -1, 0x77, 1);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+
+                    imgFgOut = Mat(img.size(), img.type(), Scalar(0));  // cv::GC_BGD
+                    Mat imgRoiFgOut = imgFgOut(fgrect);
+                    //imgFgOut = imgRoiFg;
+                    // Apply less strict foreground segmentation for the larva detection by FIMTrack
+                    //Mat bgdModelLight, fgdModelLight;
+                    //cv::cvtColor(img, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3
+                    try {
+                        cv::grabCut(imgClr, maskRoiLight, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT | ; or cv::GC_EVAL
+                    } catch(cv::Exception& err) {
+                        printf("WARNING %s> OpenCV exception in grabCut 2: %s\n", __FUNCTION__, err.msg.c_str());
+                    }
+                    if(extraVis)
+                        showGrabCutMask(maskRoiLight, "6.3.GcMaskLightRes", cvWnds);
+                    //// Note: maskRoiFg should be loose, including probable background to avoid cutting larvae: vid1-012
+                    //imgRoi.copyTo(imgRoiFgOut, maskRoiLight);
+                    cv::threshold(maskRoiLight, maskRoiFg, cv::GC_PR_FGD-1, cv::GC_PR_FGD, cv::THRESH_BINARY);  // thresh, maxval, type: ThresholdTypes
+
                     //// Reduce holes in the final forground larva mask
                     //const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
                     //const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
                     //cv::morphologyEx(maskRoiFg, maskRoiFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
                     //if(extraVis)
                     //    showGrabCutMask(maskRoiFg, "7.1.ProbFgResCl", cvWnds);
-                imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
-                cv::threshold(maskRoiLight, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
+
+                    imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
+                    cv::threshold(maskRoiLight, maskRoiFg, cv::GC_FGD, cv::GC_FGD, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
+
                     //cv::morphologyEx(maskRoiFg, maskRoiFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
                     //if(extraVis)
                     //    showGrabCutMask(maskRoiFg, "7.2.FgResCl", cvWnds);
-                imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
-                // Remove remained background
-                imgRoiFgOut.setTo(cv::GC_BGD, maskProbBg);
-                if(wndName) {
-                    Mat imgFgVis;  // Visualizing foreground image
-                    imgFgOut.copyTo(imgFgVis);
-                    cv::rectangle(imgFgVis, fgrect, cv::Scalar(CLR_FG), 1);
-                    cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
-        //            cv::drawContours(maskProbFg, hulls, -1, cv::Scalar(255, 0, 0), 2, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
-                    showCvWnd(wndName, imgFgVis, cvWnds);
-                    //// Set image to black outside the mask
-                    //bitwise_not(mask, mask);  // Invert the mask
-                    //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
+
+                    imgRoi.copyTo(imgRoiFgOut, maskRoiFg);
+                    // Remove remained background
+                    imgRoiFgOut.setTo(cv::GC_BGD, maskProbBg);
+                    if(wndName) {
+                        Mat imgFgVis;  // Visualizing foreground image
+                        imgFgOut.copyTo(imgFgVis);
+                        cv::rectangle(imgFgVis, fgrect, cv::Scalar(CLR_FG), 1);
+                        cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+            //            cv::drawContours(maskProbFg, hulls, -1, cv::Scalar(255, 0, 0), 2, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+                        showCvWnd(wndName, imgFgVis, cvWnds);
+                        //// Set image to black outside the mask
+                        //bitwise_not(mask, mask);  // Invert the mask
+                        //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
+                    }
                 }
-            }
+            } else printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
         }
 
         // Evaluate brightness
