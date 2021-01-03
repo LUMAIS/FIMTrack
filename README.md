@@ -31,6 +31,8 @@ This FIMTrack fork extends the original version with some additional functionali
 By Artem Lutov &lt;&#108;ua&#64;&#108;utan&#46;ch&gt;  
 Affiliation: [UNIFR](https://www.unifr.ch), [Lutov Analytics](https://lutan.ch/)
 
+![FIMTrack Screenshot](FIMTrack.jpg)
+
 ## Known Forks
 
 * An extension of the latest original FIMTrack aimed for fish tracking: https://github.com/wildner/FIMTrack_extension
