@@ -816,8 +816,6 @@ void Preprocessor::preprocessTracking(Mat const & src,
     // generate a scratch image
     Mat tmpImg = Mat::zeros(src.size(), src.type());
     
-    bs.subtractViaThresh(src,grayThresh,tmpImg);
-    
     // generate a contours container scratch
     contours_t contours;
     
