@@ -369,9 +369,19 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
 
     printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size(), confmin);
     if(!_trajects.empty()) {
-        const Larva&  lv = _trajects[0][0];
-        printf("%s> #%u.center[t=0]: (%d, %d); avg global dist: %f (SD: %f)\n", __FUNCTION__
-            , lv.id, lv.center.x, lv.center.y, _matchStat.distAvg, _matchStat.distStd);
+        unsigned  iframe = 0;
+        for(const auto& tr: _trajects) {
+            ++iframe;
+            if(tr.empty())
+                continue;
+            const Larva&  lv = tr[0];
+            printf("%s> #%u.center[t=%u]: (%d, %d); avg global dist: %f (SD: %f)\n", __FUNCTION__
+                , lv.id, iframe-1, lv.center.x, lv.center.y, _matchStat.distAvg, _matchStat.distStd);
+            break;
+        }
+        if(iframe >= _trajects.size())
+            printf("WARNING %s> trajectories are empty: no valid larvae exist\n", __FUNCTION__
+                , lv.id, lv.center.x, lv.center.y, _matchStat.distAvg, _matchStat.distStd);
     }
     return true;
 }
