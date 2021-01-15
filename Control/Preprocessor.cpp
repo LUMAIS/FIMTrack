@@ -689,8 +689,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             // Fetch edges for the CLAHE Probable Foreground ROI
             const double  grayThreshSoft = min<double>(grayThresh * 1.618f + 1, min(grayThresh + 32, 0xFF));
             Mat edges(imgRoiFg.size(), CV_8UC1);
-            cv::Canny(claheRoi, edges, grayThresh, grayThreshSoft);  // Note: apertureSize for the Sobel operator larger than 3 causes too much noise, still without the larvae separation: 3 (defauly=t), 5, 7
-            showCvWnd("8.EdgesClaheProbFgRoi", edges, cvWnds);
+            //cv::Canny(claheRoi, edges, grayThresh, grayThreshSoft);  // Note: apertureSize for the Sobel operator larger than 3 causes too much noise, still without the larvae separation: 3 (defauly=t), 5, 7
+            //showCvWnd("8.EdgesClaheProbFgRoi", edges, cvWnds);
 
             // Perform adaptive threshold for the CLAHE Probable Foreground ROI
             int blockSize = max<int>(1 + round(matchStat.distAvg / 4.f), 3);
@@ -707,37 +707,54 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             // Note:
             // Adaptive threshold with positive constant (requires BIN INV) produces too large contours (wrapping outside)
             // Const less than -2 causes holes in a larva contour
-            //cv::adaptiveThreshold(claheRoi, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, 0);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
-            //showCvWnd("9.0.AthClaheProbFgRoi", imgFgX, cvWnds);
-            //cv::morphologyEx(imgFgX, imgFgXm, cv::MORPH_OPEN, morphOpnKern, Point(-1, -1), mopIters);  // MORPH_OPEN, MORPH_CLOSE
-            //showCvWnd("9.0.m" + to_string(MORPH_SIZE) + "." + to_string(mopIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
-            cv::adaptiveThreshold(claheRoi, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, -1);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
-            showCvWnd("9.1n.AthClaheProbFgRoi", imgFgX, cvWnds);
+            cv::adaptiveThreshold(claheRoi, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, 0);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
+            showCvWnd("9.0.AthClaheProbFgRoi", imgFgX, cvWnds);
+            cv::morphologyEx(imgFgX, imgFgXm, cv::MORPH_OPEN, morphOpnKern, Point(-1, -1), mopIters);  // MORPH_OPEN, MORPH_CLOSE
+            showCvWnd("9.0.m" + to_string(MORPH_SIZE) + "." + to_string(mopIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
+            cv::findContours(imgFgXm, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+            printf("%s> external contours 9.0.m.CntMorphOnAthProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+            //edges.copyTo(imgFgX);
+            imgFgXm.setTo(0);
+            cv::drawContours(imgFgXm, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
+            cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+            showCvWnd("9.0.m1.1.CntMorphOnAthProbFgRoi", imgFgXm, cvWnds);
 
-            cv::adaptiveThreshold(claheRoi, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 13, 0);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
-            showCvWnd("9.0.13.AthClaheProbFgRoi", imgFgX, cvWnds);
+            //cv::adaptiveThreshold(claheRoi, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, -1);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
+            //showCvWnd("9.1n.AthClaheProbFgRoi", imgFgX, cvWnds);
+            //cv::morphologyEx(imgFgX, imgFgXm, cv::MORPH_OPEN, morphOpnKern, Point(-1, -1), mopIters);  // MORPH_OPEN, MORPH_CLOSE
+            //showCvWnd("9.1n.m" + to_string(MORPH_SIZE) + "." + to_string(mopIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
+            //cv::findContours(imgFgXm, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+            //printf("%s> external contours 9.1n.m.CntMorphOnAthProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+            ////edges.copyTo(imgFgX);
+            //imgFgXm.setTo(0);
+            //cv::drawContours(imgFgXm, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
+            //cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+            //showCvWnd("9.1n.m1.1.CntMorphOnAthProbFgRoi", imgFgXm, cvWnds);
+
+            //cv::adaptiveThreshold(claheRoi, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 13, 0);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
+            //showCvWnd("9.0.13.AthClaheProbFgRoi", imgFgX, cvWnds);
             cv::adaptiveThreshold(claheRoi, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize*2-1, 0);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
-            showCvWnd("9.0.13.AthClaheProbFgRoi", imgFgX, cvWnds);
+            showCvWnd("9.0.b2.AthClaheProbFgRoi", imgFgX, cvWnds);
             cv::erode(imgFgX, imgFgXm, morphOpnKern, Point(-1, -1), 1);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
-            showCvWnd("13.0.e.ErdAthProbFgRoi", imgFgXm, cvWnds);
+            showCvWnd("9.0.b2.e.ErdAthProbFgRoi", imgFgXm, cvWnds);
             cv::findContours(imgFgXm, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
             //cv::findContours(imgRoiFg, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
-            printf("%s> external contours 13.0.ec.CntErdAthProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+            printf("%s> external contours 9.0.b2.ec.CntErdAthProbFgRoi: %lu\n", __FUNCTION__, contours.size());
             //edges.copyTo(imgFgX);
             imgFgXm.setTo(0);
             cv::drawContours(imgFgXm, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
             cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);  // cv::FILLED, 1
-            showCvWnd("13.0.ec.CntErdAthProbFgRoi", imgFgXm, cvWnds);
+            showCvWnd("9.0.b2.ec.CntErdAthProbFgRoi", imgFgXm, cvWnds);
 
             cv::morphologyEx(imgFgX, imgFgXm, cv::MORPH_OPEN, morphOpnKern, Point(-1, -1), mopIters);  // MORPH_OPEN, MORPH_CLOSE
-            showCvWnd("13.0.m" + to_string(MORPH_SIZE) + "." + to_string(mopIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
+            showCvWnd("9.0.b2.m" + to_string(MORPH_SIZE) + "." + to_string(mopIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
             cv::findContours(imgFgXm, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-            printf("%s> external contours 13.0.mc.CntMorphOnAthProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+            printf("%s> external contours 9.0.b2.mc.CntMorphOnAthProbFgRoi: %lu\n", __FUNCTION__, contours.size());
             //edges.copyTo(imgFgX);
             imgFgXm.setTo(0);
             cv::drawContours(imgFgXm, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
             cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);  // cv::FILLED, 1
-            showCvWnd("13.0.mc.CntMorphOnAthProbFgRoi", imgFgXm, cvWnds);
+            showCvWnd("9.0.b2.mc.CntMorphOnAthProbFgRoi", imgFgXm, cvWnds);
 
             // Find and show contours
             cv::Canny(imgRoiFg, edges, grayThresh, grayThreshSoft);  // Note: apertureSize for the Sobel operator larger than 3 causes too much noise, still without the larvae separation: 3 (defauly=t), 5, 7
@@ -745,18 +762,19 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //Mat imgFgX(imgRoiFg.size(), CV_8UC1, Scalar(0));
             cv::findContours(imgRoiFg, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
             //cv::findContours(imgRoiFg, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
-            printf("%s> external contours ContsProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+            printf("%s> external contours 10c.ContsProbFgRoi: %lu\n", __FUNCTION__, contours.size());
             //edges.copyTo(imgFgX);
             imgFgX.setTo(0);
-            cv::drawContours(imgFgX, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+            cv::drawContours(imgFgX, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
+            cv::drawContours(imgFgX, contours, -1, 0xFF, 1);  // cv::FILLED, 1
             showCvWnd("10c.ContsProbFgRoi", imgFgX, cvWnds);
 
-            cv::threshold(imgRoiFg, imgFgX, grayThreshSoft, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
-            if(extraVis)
-                showCvWnd("11.o.OtsuProbFgMask", imgFgX, cvWnds);
-            cv::threshold(imgRoiFg, imgFgX, grayThreshSoft, 255, cv::THRESH_BINARY | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
-            if(extraVis)
-                showCvWnd("11.t.TriagProbFgMask", imgFgX, cvWnds);
+            //cv::threshold(imgRoiFg, imgFgX, grayThreshSoft, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+            //if(extraVis)
+            //    showCvWnd("11.o.OtsuProbFgMask", imgFgX, cvWnds);
+            //cv::threshold(imgRoiFg, imgFgX, grayThreshSoft, 255, cv::THRESH_BINARY | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
+            //if(extraVis)
+            //    showCvWnd("11.t.TriagProbFgMask", imgFgX, cvWnds);
 
 
             //vector<vector<cv::Point>>  conts;
@@ -773,27 +791,29 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //    showCvWnd("7.3." + to_string(MORPH_SIZE) + "." + to_string(opClaheIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
             //}
 
-            // Note: contours in overlapping larva can be identified using adaptiveThreshold
-            // ATTENTION: Adaptive threshold with positive constant (requires BIN INV) produces too large contours (wrapping outside)
-            cv::adaptiveThreshold(imgRoiFg, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, -1);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2;
-            showCvWnd("11.1n.AthProbFgRoi", imgFgX, cvWnds);
+//            // Note: contours in overlapping larva can be identified using adaptiveThreshold
+//            // ATTENTION: Adaptive threshold with positive constant (requires BIN INV) produces too large contours (wrapping outside)
+//            cv::adaptiveThreshold(imgRoiFg, imgFgX, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, -1);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2;
+//            showCvWnd("11.1n.AthProbFgRoi", imgFgX, cvWnds);
 
-            cv::findContours(imgFgX, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
-            printf("%s> contours ContsAthProbFgRoi: %lu, parent contours: %lu\n", __FUNCTION__, contours.size(), conts.size());
-            imgRoiFg.copyTo(imgFgXm);
-            cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);
-            showCvWnd("14.1n.ContsAthProbFgRoi", imgFgXm, cvWnds);
+//            cv::findContours(imgFgX, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
+//            printf("%s> contours 11.1nc.CntAthProbFgRoi: %lu, parent contours: %lu\n", __FUNCTION__, contours.size(), conts.size());
+//            //imgRoiFg.copyTo(imgFgXm);
+//            imgFgXm.setTo(0);
+//            cv::drawContours(imgFgXm, contours, -1, 0x77, cv::FILLED);
+//            cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);
+//            showCvWnd("11.1nc.CntAthProbFgRoi", imgFgXm, cvWnds);
 
-            cv::dilate(imgFgX, imgFgXm, Mat(), Point(-1, -1), 1);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
-            showCvWnd("12.1n.1.DilAthProbFgRoi", imgFgXm, cvWnds);
-            cv::morphologyEx(imgFgX, imgFgXm, cv::MORPH_CLOSE, morphKern, Point(-1, -1), opClaheIters);  // MORPH_OPEN, MORPH_CLOSE
-            showCvWnd("13.1n." + to_string(MORPH_SIZE) + "." + to_string(opClaheIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
+//            cv::dilate(imgFgX, imgFgXm, Mat(), Point(-1, -1), 1);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD)
+//            showCvWnd("12.1n.1.DilAthProbFgRoi", imgFgXm, cvWnds);
+//            cv::morphologyEx(imgFgX, imgFgXm, cv::MORPH_CLOSE, morphKern, Point(-1, -1), opClaheIters);  // MORPH_OPEN, MORPH_CLOSE
+//            showCvWnd("13.1n." + to_string(MORPH_SIZE) + "." + to_string(opClaheIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
 
-            cv::findContours(imgFgXm, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
-            printf("%s> contours MorphAthProbFg: %lu, parent contours: %lu\n", __FUNCTION__, contours.size(), conts.size());
-            imgRoiFg.copyTo(imgFgXm);
-            cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);
-            showCvWnd("14.1n.m.ContsMorphAthProbFgRoi", imgFgXm, cvWnds);
+//            cv::findContours(imgFgXm, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
+//            printf("%s> contours MorphAthProbFg: %lu, parent contours: %lu\n", __FUNCTION__, contours.size(), conts.size());
+            //imgRoiFg.copyTo(imgFgXm);
+            //cv::drawContours(imgFgXm, contours, -1, 0xFF, 1);
+            //showCvWnd("14.1n.m.ContsMorphAthProbFgRoi", imgFgXm, cvWnds);
 
             //// Morphology operations over the Probable Foreground
             //for(const unsigned opClaheIters: {1,3})
@@ -812,29 +832,29 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //    }
             //}
 
-            // Filter contours by topology
-            cv::findContours(edges, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
-            enum ContourTopology {
-                CNT_NEXT,
-                CNT_PREV,
-                CNT_CHILD,
-                CNT_PARENT,
-            };
-//            for(unsigned i = 0; i < contours.size(); ++i) {
-////                const int  ipar = topology[i][CNT_PARENT];
-////                if(ipar >= 0 && topology[ipar][CNT_PARENT] == -1)  // Fetch 2nd level contours only
-//                if(topology[i][CNT_PARENT] == -1) {
-//                    conts.push_back(contours[i]);
-//                    Mat imgCont(imgRoiFg.size(), CV_8UC1, Scalar(0));
-//                    cv::drawContours(imgCont, conts, conts.size() - 1, 0xFF, 1);
-//                    showCvWnd(("ParContour " + to_string(conts.size() - 1)).c_str(), imgCont, cvWnds);
-//                }
-//            }
-//            printf("%s> contours ProbFg: %lu, parent contours: %lu\n", __FUNCTION__, contours.size(), conts.size());
+//            // Filter contours by topology
+//            cv::findContours(edges, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
+//            enum ContourTopology {
+//                CNT_NEXT,
+//                CNT_PREV,
+//                CNT_CHILD,
+//                CNT_PARENT,
+//            };
+////            for(unsigned i = 0; i < contours.size(); ++i) {
+//////                const int  ipar = topology[i][CNT_PARENT];
+//////                if(ipar >= 0 && topology[ipar][CNT_PARENT] == -1)  // Fetch 2nd level contours only
+////                if(topology[i][CNT_PARENT] == -1) {
+////                    conts.push_back(contours[i]);
+////                    Mat imgCont(imgRoiFg.size(), CV_8UC1, Scalar(0));
+////                    cv::drawContours(imgCont, conts, conts.size() - 1, 0xFF, 1);
+////                    showCvWnd(("ParContour " + to_string(conts.size() - 1)).c_str(), imgCont, cvWnds);
+////                }
+////            }
+////            printf("%s> contours ProbFg: %lu, parent contours: %lu\n", __FUNCTION__, contours.size(), conts.size());
 
-            imgRoiFg.copyTo(imgFgX);
-            cv::drawContours(imgFgX, conts, -1, 0xFF, 1);
-            showCvWnd("7.1.ProbFgRoiCmb", imgFgX, cvWnds);
+//            imgRoiFg.copyTo(imgFgX);
+//            cv::drawContours(imgFgX, conts, -1, 0xFF, 1);
+//            showCvWnd("7.1.ProbFgRoiCmb", imgFgX, cvWnds);
 
             //// Show probable background
             //Mat imgBgRoi = imgRoiFg;
