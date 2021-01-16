@@ -363,7 +363,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //// Reduce holes in the forground larva mask
             //{
             //    const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
-            //    const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+            //    const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size); Note: MORPH_ELLIPSE == MORPH_CROSS for the kernel size 3x3
             //    //cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_OPEN, kernel, Point(-1, -1), opClaheIters);  // Iterations: 1, 2, opClaheIters
             //    cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_CLOSE, morphKern);  // MORPH_OPEN
             //    if(extraVis)
@@ -380,19 +380,19 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 Mat maskClaheAth;
                 Mat maskClaheAthErd;
                 const int  MORPH_SIZE = 1;  // round(opClaheIters * 1.5f);  // 1-3
-                const Mat erdKern = getStructuringElement(cv::MORPH_CROSS, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+                const Mat erdKern = getStructuringElement(cv::MORPH_CROSS, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size); Note: MORPH_ELLIPSE == MORPH_CROSS for the kernel size 3x3
                 {
                     int blockSize = max<int>(1 + round(matchStat.distAvg / 2.f), 5);
                     if (blockSize % 2 == 0)
                         ++blockSize;
                     cv::adaptiveThreshold(claheRoi, maskClaheAth, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, 0);  // ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
-
                     // Refine maskClaheAth, filtering out the background
                     maskClaheAth.setTo(0, maskClaheBg);
 
                     cv::erode(maskClaheAth, maskClaheAthErd, erdKern, Point(-1, -1), 1);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD); 1 or opClaheIters
                     //if(extraVis)
                     //    showCvWnd("2.0e.ErdAthClaheProbFgRoi", maskClaheAthErd, cvWnds);
+                    //cv::dilate(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
                     contours_t  contours;
                     cv::findContours(maskClaheAthErd, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                     //cv::findContours(imgRoiFg, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
@@ -537,7 +537,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //                    }
 
                     // Extend true background with 9.0.b2.mc.CntMorphOnAthProbFgRoi (based on adaptive thresholding of the foreground)
-                    updateConditional2(maskProbFgx, maskClaheAthErd, 0, 0xFF, 0);  // Reset non-foreground regions of maskClaheAthErd (set to 0)
+                    //updateConditional2(maskProbFgx, maskClaheAthErd, 0, 0xFF, 0);  // Reset non-foreground regions of maskClaheAthErd (set to 0)
                     updateConditional2(maskProbFgx, maskClaheAth, 0, 0xFF, 0);  // Reset non-foreground regions of maskClaheAthErd (set to 0)
                     // Note: reuse maskClaheAth for the morphology results
                     cv::morphologyEx(maskClaheAth, maskClaheAth, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
@@ -551,7 +551,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //cv::drawContours(maskClaheAth, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
                         //cv::drawContours(maskClaheAth, contours, -1, 0xFF, 1);  // cv::FILLED, 1
                         if(extraVis) {
-                            showCvWnd("6.1.CntErdAthProbFgRoi", maskClaheAthErd, cvWnds);
+                            //showCvWnd("6.1.CntErdAthProbFgRoi", maskClaheAthErd, cvWnds);
                             showCvWnd("6.2.CntMopnAthClaheProbFgRoi", maskClaheAth, cvWnds);
                         }
                     }
@@ -561,23 +561,28 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // either erode the 5.ProbFgRoiMask
                     // or overlap the ProbFg of GrabCut with the eroded original ProbFg (without the TrueFg)
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
-                    cv::erode(maskProbFgx, maskProbFgx, erdKern, Point(-1, -1), 3) ;  // erdKern or Mat(); (1 or opClaheIters=2) + 1
-                    const Mat erdKern2 = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
-                    // Note: reuse maskFg
-                    cv::erode(maskProbFgx, maskFg, erdKern2, Point(-1, -1), 1) ;  // erdKern or Mat(); 1 or opClaheIters=2
+                    cv::erode(maskProbFgx, maskProbFgx, erdKern, Point(-1, -1), 4);  // erdKern (Cross = Ellipse 3x3) with 4 iters or Mat() (Rect) with 1 iter
+//                    cv::erode(maskProbFgx, maskProbFgx, Mat(), Point(-1, -1), 1);  // erdKern or Mat(); (1 or opClaheIters=2) + 1
+                    //// Note: reuse maskFg
+                    //cv::erode(maskProbFgx, maskFg, Mat(), Point(-1, -1), 1);  // erdKern or Mat(); (1 or opClaheIters=2) + 1
                     if(extraVis) {
                         showCvWnd("7.1.ErdCntAthProbFgRoi", maskClaheAth, cvWnds);
+                        //showCvWnd("7.2r.ErdRcProbFgRoi", maskFg, cvWnds);
                         showCvWnd("7.2+.ErdCrProbFgRoi", maskProbFgx, cvWnds);
-                        showCvWnd("7.2o.ErdCiProbFgRoi", maskFg, cvWnds);
                     }
                     // Form the compound mask
-                    maskClaheAth += maskFg;
-                    maskClaheAthErd += maskProbFgx;
-                    showCvWnd("8o.RfnMopnCrProbFgRoi", maskClaheAth, cvWnds);  // Works better than 8+.RfnErdCiProbFgRoi
-                    //showCvWnd("8+.RfnErdCiProbFgRoi", maskClaheAthErd, cvWnds);
+                    maskClaheAth += maskProbFgx;
+                    //maskClaheAthErd += maskProbFgx;
+                    showCvWnd("8r.RfnMopnRcProbFgRoi", maskClaheAth, cvWnds);  // Works better than 8+.RfnErdCiProbFgRoi
+                    //showCvWnd("8+.RfnErdCrProbFgRoi", maskClaheAthErd, cvWnds);
+                    //cv::morphologyEx(maskClaheAth, maskClaheAth, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
+                    cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);  // Less destroying than MORPH_OPEN
+                    showCvWnd("9.ErdRfnMopnRcProbFgRoi", maskClaheAth, cvWnds);
+                    cv::dilate(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
+                    showCvWnd("9.MclRfnMopnRcProbFgRoi", maskClaheAth, cvWnds);
 
                     // Refine maskRoi from ProbFg to ProbBG [/FG] based on maskClaheAthXXX
-                    updateConditional2(maskClaheAth, maskRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);  // TODO: consider maskClaheAthErd, then maskClaheAth can be omitted at all
+                    updateConditional2(maskClaheAth, maskRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
                     if(extraVis)
                          showGrabCutMask(maskRoi, "7.UpdGcMask", cvWnds);
 
@@ -610,7 +615,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
 //                    //// Reduce holes in the final forground larva mask
 //                    //const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
-//                    //const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+//                    //const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size); Note: MORPH_ELLIPSE == MORPH_CROSS for the kernel size 3x3
 //                    //cv::morphologyEx(maskRoiFg, maskRoiFg, cv::MORPH_CLOSE, morphKern, Point(-1, -1), 1, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // MORPH_OPEN
 //                    //if(extraVis)
 //                    //    showGrabCutMask(maskRoiFg, "7.1.ProbFgResCl", cvWnds);
@@ -817,7 +822,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //            if (blockSize % 2 == 0)
 //                ++blockSize;
 //            const int  MORPH_SIZE = 1;  // round(opClaheIters * 1.5f);  // 1-3
-//            const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+//            const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size); Note: MORPH_ELLIPSE == MORPH_CROSS for the kernel size 3x3
 //            const Mat morphOpnKern = getStructuringElement(cv::MORPH_CROSS, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
 //            const unsigned mopIters = 1;  // 1..3
 //            const unsigned opClaheIters = 3;
@@ -905,7 +910,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //            //{
 //            //    const unsigned opClaheIters = 1;
 //            //    const int  MORPH_SIZE = 1;  // round(opClaheIters * 1.5f);  // 1-3
-//            //    const Mat morphKern = getStructuringElement(cv::MORPH_RECT, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+//            //    const Mat morphKern = getStructuringElement(cv::MORPH_RECT, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size); Note: MORPH_ELLIPSE == MORPH_CROSS for the kernel size 3x3
 //            //
 //            //    cv::morphologyEx(imgFgX, imgFgXm, cv::MORPH_OPEN, morphKern, Point(-1, -1), opClaheIters);  // MORPH_OPEN, MORPH_CLOSE
 //            //    showCvWnd("7.3." + to_string(MORPH_SIZE) + "." + to_string(opClaheIters) + ".MorphOnAthProbFgRoi", imgFgXm, cvWnds);
@@ -942,7 +947,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //            //    for(const unsigned MORPH_SIZE: {2,3})
 //            //    {
 //            //        //const int  MORPH_SIZE = round(opClaheIters * 1.5f);  // 1-3
-//            //        const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size)
+//            //        const Mat morphKern = getStructuringElement(cv::MORPH_ELLIPSE, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size); Note: MORPH_ELLIPSE == MORPH_CROSS for the kernel size 3x3
 //            //        //cv::morphologyEx(maskProbFgx, maskProbFgx, cv::MORPH_OPEN, kernel, Point(-1, -1), opClaheIters);  // Iterations: 1, 2, opClaheIters
 //            //        cv::morphologyEx(imgRoiFg, imgFgX, cv::MORPH_OPEN, morphKern, Point(-1, -1), opClaheIters);  // MORPH_OPEN, MORPH_CLOSE
 //            //        showCvWnd("7.3." + to_string(MORPH_SIZE) + "." + to_string(opClaheIters) + ".MorphProbFgRoiPFg", imgFgX, cvWnds);
