@@ -433,15 +433,28 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                          showGrabCutMask(maskRoi, "3.1.GcMask", cvWnds);
 
                     // Note: maskProbFg should be strict without the probable background to evaluate brightness threshold accurately
-                    // Note: reuse maskProbFg for the foreground mask extended with the probable foreground withot the backround
-                    cv::threshold(maskRoi, maskProbFg, cv::GC_FGD, 0xFF, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
-                    updateConditional2(maskRoi, maskProbFg, cv::GC_PR_FGD, 0, 0xFF);  // Reset non-foreground regions of maskClaheAth (set to 0)
-                    //maskProbFg.setTo(0, maskClaheBg);
+                    Mat maskProbFgExt; //(maskProbFg.size(), maskProbFg.type(), Scalar(0));  // Extension of the maskProbFg with the GrabCut detected probable foreground
+                    ////cv::threshold(maskRoi, maskProbFgExt, cv::GC_FGD, 0xFF, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
+                    maskProbFg.copyTo(maskProbFgExt);
+                    updateConditional2(maskRoi, maskProbFgExt, cv::GC_PR_FGD, 0, 0xFF);  // Reset non-foreground regions of maskClaheAth (set to 0)
+                    //maskProbFgExt.setTo(0, maskClaheBg);  // Note: this is redundant because ProbFg never contains the true Backgound
+                    // Reduce maskClaheAth with the Probable Background (it never includes true Background but might contain the Probable Background)
+                    updateConditional2(maskProbFgExt, maskClaheAth, 0, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
+                    maskProbFgExt.setTo(0, maskProbFg);
                     if(extraVis)
-                        showCvWnd("3.2.ProbFgRoiMask", maskProbFg, cvWnds);
+                        showCvWnd("3.2.ProbFgRoiMask", maskProbFgExt, cvWnds);
 
-                    // Reduce maskClaheAth with the Probable Background (it never includes true Background but could contain the Probable Background)
-                    updateConditional2(maskProbFg, maskClaheAth, 0, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
+                    // -----
+                    // TODO:
+                    // 1. Use *2.4.RfnProbFgRoi* (, or 4.1.ErdCntAthProbFgRoi, or 5.1+.RfnMopnCrProbFgRoi <- might not be required) as a base for the cv::connectedComponents.
+                    // 2. Expand those components with:
+                    // either intersection of the non-eroded 2.1.CntRfnAthClaheProbFgRoi (maskClaheAth) and Probable Foreground from GrabCut 3.1.GcMask
+                    // or/and the 4.3+.ErdCrProbFgRoi and considering the (eroded) 2.2.ProbFgClahe (ProbFg only), and intersection of the non-eeroded CntAthProbFgRoi (maskClaheAth) with 3.2.ProbFgRoiMask.
+                    // Note: the intersection of probable foreground from 2.5.PreGcMask wirh the probable foreground of GrabCut 3.2.ProbFgRoiMask has priority over the 3.2.ProbFgRoiMask.
+                    // 3. Merge components smaller that 1/3 .. 1/2 by oerimeter of the top 25% quntile by size (or just compareed to the lagest component)
+                    //
+                    // -----
+
                     // Extend true Background with 9.0.b2.mc.CntMorphOnAthProbFgRoi (based on adaptive thresholding of the foreground)
 //                    // Note: reuse maskClaheAth for the morphology results; MORPH_OPEN is harder than erode (cross) + delate
 //                    cv::morphologyEx(maskClaheAth, maskClaheAth, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
@@ -453,8 +466,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     //
                     // Erode the adaptive thresholding of Clahe for more strict foreground. Late erosion reduces noise caused by 3.2.ProbFgRoiMask on merging it later to expand the connected components (see vid_1-040, 042)
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
-                    //cv::erode(maskProbFg, maskTmp, Mat(), Point(-1, -1), 2);  // 2, 1; erdKern or Mat(); (1 or opClaheIters=2) + 1; Note:
-                    cv::erode(maskProbFg, maskProbFg, erdKern, Point(-1, -1), 3);  // 3, 2,[4]; erdKern (Cross = Ellipse 3x3) with 4 iters or Mat() (Rect) with 1 iter, the latter is harder even with a single iteration; Iterations: 3-4 ~= blockSize / 4
+                    //cv::erode(maskProbFgExt, maskTmp, Mat(), Point(-1, -1), 2);  // 2, 1; erdKern or Mat(); (1 or opClaheIters=2) + 1; Note:
+                    cv::erode(maskProbFgExt, maskProbFgExt, erdKern, Point(-1, -1), 3);  // 3, 2,[4]; erdKern (Cross = Ellipse 3x3) with 4 iters or Mat() (Rect) with 1 iter, the latter is harder even with a single iteration; Iterations: 3-4 ~= blockSize / 4
                     if(extraVis) {
                         showCvWnd("4.1.ErdCntAthProbFgRoi", maskClaheAth, cvWnds);
 
@@ -468,21 +481,14 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //    showCvWnd("4.2.CntErdCntAthProbFgRoi", maskTmp, cvWnds);
 
                         //showCvWnd("4.3r.ErdRcProbFgRoi", maskTmp, cvWnds);
-                        showCvWnd("4.3+.ErdCrProbFgRoi", maskProbFg, cvWnds);
+                        showCvWnd("4.3+.ErdCrProbFgRoi", maskProbFgExt, cvWnds);
                     }
-
-                    // -----
-                    // TODO:
-                    // 1. Use *2.4.RfnProbFgRoi*, or 4.1.ErdCntAthProbFgRoi, or 5.1+.RfnMopnCrProbFgRoi as a base for the cv::connectedComponents.
-                    // 2. Expand those components with the 4.3+.ErdCrProbFgRoi and considering the (eroded) 2.2.ProbFgClahe (ProbFg only), and intersection of the non-eeroded CntAthProbFgRoi (maskClaheAth) with 3.2.ProbFgRoiMask
-
-                    // -----
 
                     // Form the compound mask
                     //Mat maskClaheAthR;
                     //maskClaheAth.copyTo(maskClaheAthR);
                     //maskClaheAthR += maskTmp;
-                    maskClaheAth += maskProbFg;
+                    maskClaheAth += maskProbFgExt;
                     showCvWnd("5.1+.RfnMopnCrProbFgRoi", maskClaheAth, cvWnds);  // Works better than 8+.RfnErdCiProbFgRoi
                     //showCvWnd("5.1r.RfnMopnRcProbFgRoi", maskClaheAthR, cvWnds);
 
