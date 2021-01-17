@@ -298,24 +298,24 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 // Dilate convex to extract probable foreground
                 const unsigned  opIters = round(1 + matchStat.distAvg / 4.f);  // Operation iterations
                 cv::dilate(maskProbFgOrig, maskProbFg, Mat(), Point(-1, -1), opIters, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
-                if(extraVis) {
-                    // Erode excluded convex hulls in the original foreground mask to produce the actual Foreground
-                    Mat maskFg;  // Foreground mask
-                    cv::erode(maskProbFgOrig, maskFg, Mat(), Point(-1, -1), opIters);  // 4..6..8; Iterations: ~= Ravg / 8 + 1
-                    // Use stricter processing for more accurate results if possible (almost always)
-                    if(cv::countNonZero(maskFg) <= opIters * opIters)
-                        maskProbFgOrig.copyTo(maskFg);
-
-                    // Produce the Probable Background from the extended inversion of the probable foreground
-                    Mat inpMask(fgrect.size(), CV_8UC1, Scalar(GC_PR_BGD));  // Filled mask
-                    inpMask.setTo(0, maskProbFg);  // Exclude foreground
-                    // Erode convex to extract Probable background
-                    cv::erode(inpMask, inpMask, Mat(), Point(-1, -1), 2);  // Iterations: ~= 1 .. 2
-                    inpMask.setTo(cv::GC_PR_FGD, maskProbFg);
-                    inpMask.setTo(cv::GC_FGD, maskFg);
-
-                    showGrabCutMask(inpMask, "1.InpMasks", cvWnds);
-                }
+                //if(extraVis) {
+                //    // Erode excluded convex hulls in the original foreground mask to produce the actual Foreground
+                //    Mat maskFg;  // Foreground mask
+                //    cv::erode(maskProbFgOrig, maskFg, Mat(), Point(-1, -1), opIters);  // 4..6..8; Iterations: ~= Ravg / 8 + 1
+                //    // Use stricter processing for more accurate results if possible (almost always)
+                //    if(cv::countNonZero(maskFg) <= opIters * opIters)
+                //        maskProbFgOrig.copyTo(maskFg);
+                //
+                //    // Produce the Probable Background from the extended inversion of the probable foreground
+                //    Mat inpMask(fgrect.size(), CV_8UC1, Scalar(GC_PR_BGD));  // Filled mask
+                //    inpMask.setTo(0, maskProbFg);  // Exclude foreground
+                //    // Erode convex to extract Probable background
+                //    cv::erode(inpMask, inpMask, Mat(), Point(-1, -1), 2);  // Iterations: ~= 1 .. 2
+                //    inpMask.setTo(cv::GC_PR_FGD, maskProbFg);
+                //    inpMask.setTo(cv::GC_FGD, maskFg);
+                //
+                //    showGrabCutMask(inpMask, "1.InpMasks", cvWnds);
+                //}
             }
 
             // Form the mask
@@ -449,7 +449,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                     // Reduce holes in maskClaheAth (or eroded maskClaheAth) by extending it with:
                     // either erode the ProbFgRoiMask (works the best)
-                    // or overlap the ProbFg of GrabCut with the eroded original ProbFg (without the true Foreground)
+                    // or overlap the ProbFg of GrabCut with the [eroded] original ProbFg (without the true Foreground)
+                    //
+                    // Erode the adaptive thresholding of Clahe for more strict foreground. Late erosion reduces noise caused by 3.2.ProbFgRoiMask on merging it later to expand the connected components (see vid_1-040, 042)
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
                     //cv::erode(maskProbFg, maskTmp, Mat(), Point(-1, -1), 2);  // 2, 1; erdKern or Mat(); (1 or opClaheIters=2) + 1; Note:
                     cv::erode(maskProbFg, maskProbFg, erdKern, Point(-1, -1), 3);  // 3, 2,[4]; erdKern (Cross = Ellipse 3x3) with 4 iters or Mat() (Rect) with 1 iter, the latter is harder even with a single iteration; Iterations: 3-4 ~= blockSize / 4
@@ -468,6 +470,14 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //showCvWnd("4.3r.ErdRcProbFgRoi", maskTmp, cvWnds);
                         showCvWnd("4.3+.ErdCrProbFgRoi", maskProbFg, cvWnds);
                     }
+
+                    // -----
+                    // TODO:
+                    // 1. Use *2.4.RfnProbFgRoi*, or 4.1.ErdCntAthProbFgRoi, or 5.1+.RfnMopnCrProbFgRoi as a base for the cv::connectedComponents.
+                    // 2. Expand those components with the 4.3+.ErdCrProbFgRoi and considering the (eroded) 2.2.ProbFgClahe (ProbFg only), and intersection of the non-eeroded CntAthProbFgRoi (maskClaheAth) with 3.2.ProbFgRoiMask
+
+                    // -----
+
                     // Form the compound mask
                     //Mat maskClaheAthR;
                     //maskClaheAth.copyTo(maskClaheAthR);
@@ -476,18 +486,28 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     showCvWnd("5.1+.RfnMopnCrProbFgRoi", maskClaheAth, cvWnds);  // Works better than 8+.RfnErdCiProbFgRoi
                     //showCvWnd("5.1r.RfnMopnRcProbFgRoi", maskClaheAthR, cvWnds);
 
-                    cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-                    printf("%s> external contours 5.2.CntRfnMopnCrProbFgRoi: %lu\n", __FUNCTION__, contours.size());
-                    maskTmp.setTo(0);
-                    cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
-                    //cv::drawContours(maskTmp, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
-                    //cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
-                    if(extraVis)
-                        showCvWnd("5.2.CntRfnMopnCrProbFgRoi", maskTmp, cvWnds);
+                    //cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                    //printf("%s> external contours 5.2.CntRfnMopnCrProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+                    //maskTmp.setTo(0);
+                    //cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+                    ////cv::drawContours(maskTmp, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
+                    ////cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+                    //if(extraVis)
+                    //    showCvWnd("5.2.CntRfnMopnCrProbFgRoi", maskTmp, cvWnds);
 
                     //cv::morphologyEx(maskClaheAth, maskClaheAth, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);  // Less destroying than MORPH_OPEN
                     showCvWnd("6.1.ErdRfnMopnProbFgRoi", maskClaheAth, cvWnds);
+
+                    //cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                    //printf("%s> external contours 6.1c.CntMclRfnMopnProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+                    //maskTmp.setTo(0);
+                    //cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+                    ////cv::drawContours(maskTmp, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
+                    ////cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+                    //if(extraVis)
+                    //    showCvWnd("6.1c.CntMclRfnMopnProbFgRoi", maskTmp, cvWnds);
+
                     cv::dilate(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
                     showCvWnd("6.2.MclRfnMopnProbFgRoi", maskClaheAth, cvWnds);
 
@@ -511,6 +531,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     imgRoiFg = imgFgOut(fgrect);  // Produce the final probable foreground
                     imgRoi.copyTo(imgRoiFg, maskProbFg);
                     //imgRoiFg.copyTo(imgFgOut(fgrect));
+                    if(extraVis)
+                        showCvWnd("9.Foreground", imgRoiFg, cvWnds);  // Resulting foreground
 
                     if(wndName) {
                         Mat imgFgVis;  // Visualizing foreground image
