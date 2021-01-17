@@ -288,7 +288,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             constexpr uint8_t  CLR_FG_PROB = 0xAA;
             constexpr uint8_t  CLR_FG = 0xFF;
 
-            Mat maskTmp;  // Temporary mask
             Mat maskProbFg;  // Probable Foreground mask
             {
                 Mat maskProbFgOrig(fgrect.size(), CV_8UC1, Scalar(0));  // Empty mask
@@ -301,10 +300,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::dilate(maskProbFgOrig, maskProbFg, Mat(), Point(-1, -1), opIters, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
                 if(extraVis) {
                     // Erode excluded convex hulls in the original foreground mask to produce the actual Foreground
-                    cv::erode(maskProbFgOrig, maskTmp, Mat(), Point(-1, -1), opIters);  // 4..6..8; Iterations: ~= Ravg / 8 + 1
+                    Mat maskFg;  // Foreground mask
+                    cv::erode(maskProbFgOrig, maskFg, Mat(), Point(-1, -1), opIters);  // 4..6..8; Iterations: ~= Ravg / 8 + 1
                     // Use stricter processing for more accurate results if possible (almost always)
-                    if(cv::countNonZero(maskTmp) <= opIters * opIters)
-                        maskProbFgOrig.copyTo(maskTmp);
+                    if(cv::countNonZero(maskFg) <= opIters * opIters)
+                        maskProbFgOrig.copyTo(maskFg);
 
                     // Produce the Probable Background from the extended inversion of the probable foreground
                     Mat inpMask(fgrect.size(), CV_8UC1, Scalar(GC_PR_BGD));  // Filled mask
@@ -312,7 +312,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // Erode convex to extract Probable background
                     cv::erode(inpMask, inpMask, Mat(), Point(-1, -1), 2);  // Iterations: ~= 1 .. 2
                     inpMask.setTo(cv::GC_PR_FGD, maskProbFg);
-                    inpMask.setTo(cv::GC_FGD, maskTmp);
+                    inpMask.setTo(cv::GC_FGD, maskFg);
 
                     showGrabCutMask(inpMask, "1.InpMasks", cvWnds);
                 }
@@ -320,6 +320,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
             // Form the mask
             Mat maskRoi(fgrect.size(), CV_8UC1, Scalar(cv::GC_PR_BGD));  // Resulting mask;  GC_PR_BGD, GC_BGD
+            Mat maskTmp(fgrect.size(), CV_8UC1);  // Temporary mask
             // Add CLAHE/OTSU based probable foreground
             cv::Ptr<CLAHE> clahe = createCLAHE();
             //const int  grain = 1 + matchStat.distAvg / 2.f;  // Square 3 or 4
@@ -361,6 +362,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::threshold(claheRoi, maskClaheBg, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or 196
                 // Identify CLAHE-based contours to separate nearby foreground regions (touching larvae) in the GrabCut masks
                 Mat maskClaheAth;
+                contours_t  contours;
                 constexpr int  MORPH_SIZE = 1;  // round(opClaheIters * 1.5f);  // 1-3
                 const Mat erdKern = getStructuringElement(cv::MORPH_CROSS, Size(2*MORPH_SIZE + 1, 2*MORPH_SIZE + 1));  // MORPH_RECT, MORPH_CROSS, MORPH_ELLIPSE; kernel size = 2*MORPH_SIZE + 1; Point(morph_size, morph_size); Note: MORPH_ELLIPSE == MORPH_CROSS for the kernel size 3x3
                 {
@@ -376,7 +378,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD); 1 or opClaheIters
                     cv::dilate(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
-                    contours_t  contours;
                     cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                     //cv::findContours(imgRoiFg, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
                     //printf("%s> external contours 2.1.CntRfnAthClaheProbFgRoi: %lu, blockSize: %d\n", __FUNCTION__, contours.size(), blockSize);
@@ -422,6 +423,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
                     if(extraVis)
                          showGrabCutMask(maskRoi, "2.5.PreGcMask", cvWnds);
+
                     //try {
                         cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
                     //} catch(cv::Exception& err) {
@@ -430,7 +432,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     if(extraVis)
                          showGrabCutMask(maskRoi, "3.1.GcMask", cvWnds);
 
-                    // Note: maskProbFg shuld be strict without probable background to evaluate brightness threshold accurately
+                    // Note: maskProbFg should be strict without the probable background to evaluate brightness threshold accurately
                     // Note: reuse maskProbFg for the foreground mask extended with the probable foreground withot the backround
                     cv::threshold(maskRoi, maskProbFg, cv::GC_FGD, 0xFF, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
                     updateConditional2(maskRoi, maskProbFg, cv::GC_PR_FGD, 0, 0xFF);  // Reset non-foreground regions of maskClaheAth (set to 0)
@@ -438,48 +440,56 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     if(extraVis)
                         showCvWnd("3.2.ProbFgRoiMask", maskProbFg, cvWnds);
 
-                    // Extend true background with 9.0.b2.mc.CntMorphOnAthProbFgRoi (based on adaptive thresholding of the foreground)
+                    // Reduce maskClaheAth with the Probable Background (it never includes true Background but could contain the Probable Background)
                     updateConditional2(maskProbFg, maskClaheAth, 0, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
-//                    // Note: reuse maskClaheAth for the morphology results
+                    // Extend true Background with 9.0.b2.mc.CntMorphOnAthProbFgRoi (based on adaptive thresholding of the foreground)
+//                    // Note: reuse maskClaheAth for the morphology results; MORPH_OPEN is harder than erode (cross) + delate
 //                    cv::morphologyEx(maskClaheAth, maskClaheAth, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
 //                    //showCvWnd("4.0m" + to_string(MORPH_SIZE) + ".MopnAthProbFgRoi", imgFgXm, cvWnds);
-//                    {
-//                        contours_t  contours;
-//                        cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-//                        printf("%s> external contours 4.1.CntMopnAthClaheProbFgRoi: %lu\n", __FUNCTION__, contours.size());
-//                        maskClaheAth.setTo(0);
-//                        cv::drawContours(maskClaheAth, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
-//                        //cv::drawContours(maskClaheAth, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
-//                        //cv::drawContours(maskClaheAth, contours, -1, 0xFF, 1);  // cv::FILLED, 1
-//                        if(extraVis) {
-//                            showCvWnd("4.1.CntMopnAthClaheProbFgRoi", maskClaheAth, cvWnds);
-//                        }
-//                    }
 
-                    // Fill holes in maskClaheAth (or eroded maskClaheAth) by extending it with:
-                    // either erode the 5.ProbFgRoiMask
-                    // or overlap the ProbFg of GrabCut with the eroded original ProbFg (without the TrueFg)
+                    // Reduce holes in maskClaheAth (or eroded maskClaheAth) by extending it with:
+                    // either erode the ProbFgRoiMask (works the best)
+                    // or overlap the ProbFg of GrabCut with the eroded original ProbFg (without the true Foreground)
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
-                    cv::erode(maskProbFg, maskProbFg, erdKern, Point(-1, -1), 4);  // erdKern (Cross = Ellipse 3x3) with 4 iters or Mat() (Rect) with 1 iter, the latter is harder even with a single iteration; Iterations: 3-4 ~= blockSize / 4
-                    //cv::erode(maskProbFg, maskTmp, Mat(), Point(-1, -1), 1);  // erdKern or Mat(); (1 or opClaheIters=2) + 1; Note:
-                    cv::erode(maskProbFg, maskTmp, erdKern, Point(-1, -1), 2);
+                    //cv::erode(maskProbFg, maskTmp, Mat(), Point(-1, -1), 2);  // 2, 1; erdKern or Mat(); (1 or opClaheIters=2) + 1; Note:
+                    cv::erode(maskProbFg, maskProbFg, erdKern, Point(-1, -1), 3);  // 3, 2,[4]; erdKern (Cross = Ellipse 3x3) with 4 iters or Mat() (Rect) with 1 iter, the latter is harder even with a single iteration; Iterations: 3-4 ~= blockSize / 4
                     if(extraVis) {
                         showCvWnd("4.1.ErdCntAthProbFgRoi", maskClaheAth, cvWnds);
-                        showCvWnd("4.2r.ErdRcProbFgRoi", maskTmp, cvWnds);
-                        showCvWnd("4.2+.ErdCrProbFgRoi", maskProbFg, cvWnds);
+
+                        //cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                        //printf("%s> external contours 4.2.CntErdCntAthProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+                        //maskTmp.setTo(0);
+                        //cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+                        ////cv::drawContours(maskTmp, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
+                        ////cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+                        //if(extraVis)
+                        //    showCvWnd("4.2.CntErdCntAthProbFgRoi", maskTmp, cvWnds);
+
+                        //showCvWnd("4.3r.ErdRcProbFgRoi", maskTmp, cvWnds);
+                        showCvWnd("4.3+.ErdCrProbFgRoi", maskProbFg, cvWnds);
                     }
                     // Form the compound mask
-                    Mat maskClaheAthR;
-                    maskClaheAth.copyTo(maskClaheAthR);
-                    maskClaheAthR += maskTmp;
+                    //Mat maskClaheAthR;
+                    //maskClaheAth.copyTo(maskClaheAthR);
+                    //maskClaheAthR += maskTmp;
                     maskClaheAth += maskProbFg;
-                    showCvWnd("8+.RfnMopnCrProbFgRoi", maskClaheAth, cvWnds);  // Works better than 8+.RfnErdCiProbFgRoi
-                    showCvWnd("8r.RfnMopnRcProbFgRoi", maskClaheAthR, cvWnds);
+                    showCvWnd("5.1+.RfnMopnCrProbFgRoi", maskClaheAth, cvWnds);  // Works better than 8+.RfnErdCiProbFgRoi
+                    //showCvWnd("5.1r.RfnMopnRcProbFgRoi", maskClaheAthR, cvWnds);
+
+                    cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                    printf("%s> external contours 5.2.CntRfnMopnCrProbFgRoi: %lu\n", __FUNCTION__, contours.size());
+                    maskTmp.setTo(0);
+                    cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+                    //cv::drawContours(maskTmp, contours, -1, 0x77, cv::FILLED);  // cv::FILLED, 1
+                    //cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+                    if(extraVis)
+                        showCvWnd("5.2.CntRfnMopnCrProbFgRoi", maskTmp, cvWnds);
+
                     //cv::morphologyEx(maskClaheAth, maskClaheAth, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);  // Less destroying than MORPH_OPEN
-                    showCvWnd("9.ErdRfnMopnProbFgRoi", maskClaheAth, cvWnds);
+                    showCvWnd("6.1.ErdRfnMopnProbFgRoi", maskClaheAth, cvWnds);
                     cv::dilate(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
-                    showCvWnd("9.MclRfnMopnProbFgRoi", maskClaheAth, cvWnds);
+                    showCvWnd("6.2.MclRfnMopnProbFgRoi", maskClaheAth, cvWnds);
 
                     // Refine maskRoi from ProbFg to ProbBG [/FG] based on maskClaheAthXXX
                     updateConditional2(maskClaheAth, maskRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
