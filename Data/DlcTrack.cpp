@@ -450,6 +450,69 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
     return matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp);
 }
 
+cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span, vector<Larva::Points>* larvaHulls)
+{
+    // Identify an approximate foregroud ROI
+    // Note: initially, store top-left and bottom-right points in the rect, and ther change the latter to height-width
+    cv::Rect  fgrect = {area.width, area.height, 0, 0};
+
+    // Identify the foreground ROI as an approximaiton (convexHull) of the DLC-tracked larva contours
+    Larva::Points  hull;
+    vector<Larva::Points> hulls;
+    for(const auto& lv: larvae) {
+        // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
+        hull.reserve(lv.points.size());
+        cv::convexHull(lv.points, hull);
+        hulls.push_back(std::move(hull));
+
+        for(const auto& pt: lv.points) {
+            if(pt.x < fgrect.x)
+                fgrect.x = pt.x;
+            if(pt.x > fgrect.width)
+                fgrect.width = pt.x;
+
+            if(pt.y < fgrect.y)
+                fgrect.y = pt.y;
+            if(pt.y > fgrect.height)
+                fgrect.height = pt.y;
+        }
+    }
+    // Convert bottom-right to height-width
+    fgrect.width -= fgrect.x;
+    fgrect.height -= fgrect.y;
+    //if(!(fgrect.x >= 0 && fgrect.y >= 0))
+    //    printf("%s> fgrect initial: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    //assert(fgrect.x >= 0 && fgrect.y >= 0 && "Coordinates validation failed");
+    //printf("%s> fgrect initial: %d + %d of %d, %d + %d of %f\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    if(!fgrect.empty()) {
+        // Expand the foreground ROI with the statistical span
+        //const int  span = matchStat.distAvg + matchStat.distStd;  // Note: we expend from the border points rather thatn from the center => *1..2 rather than *3
+        int dx = span;
+        fgrect.x -= dx;
+        if(fgrect.x < 0) {
+            dx += fgrect.x;
+            fgrect.x = 0;
+        }
+        int dy = span;
+        fgrect.y -= dy;
+        if(fgrect.y < 0) {
+            dy += fgrect.y;
+            fgrect.y = 0;
+        }
+        fgrect.width += dx + span;
+        if(fgrect.x + fgrect.width >= area.width)
+            fgrect.width = area.width - fgrect.x;
+        fgrect.height += dy + span;
+        if(fgrect.y + fgrect.height >= area.height)
+            fgrect.height = area.height - fgrect.y;
+        //printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
+    }
+
+    if(larvaHulls)
+        *larvaHulls = move(hulls);
+    return fgrect;
+}
+
 unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
 {
     if(larvae.empty()) {

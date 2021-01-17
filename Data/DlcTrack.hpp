@@ -74,6 +74,15 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
 //! \param mp  - parameters for the larvae matching
 unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint=0);
 
+//! \brief Get ROI rect for the specified larvae
+//! \param larvae  - input larvae contours
+//! \param area  - size of the input area
+//! \param span  - span to the rect borders from the larvae
+//! \param larvaHulls  - optional output larvae hulls
+//! \return ROI rect, containing the larvae
+cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span=0, vector<Larva::Points>* larvaHulls=nullptr);
+
+//! \brief The Tracker class
 class Tracker {
     constexpr static  unsigned  _larvaPtCols = 3;  //!< The number of columns (fields) in each larva point
     const MatchParams  _matchParams;
