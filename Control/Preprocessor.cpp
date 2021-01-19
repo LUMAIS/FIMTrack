@@ -634,12 +634,14 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // Add reduced maskGcProbFg
                     cv::subtract(maskGcProbFg, edgesOrig, maskTmp);
                     cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);  // 8 .. 12 .. 16;
-                    showCvWnd("9.6.-1.ErdRemMaskGcProbFg", maskTmp, cvWnds);
+                    if(extraVis)
+                        showCvWnd("9.6.-1.ErdRemMaskGcProbFg", maskTmp, cvWnds);
                     edgesOrig += maskTmp;
 
                     // Substract reduced CLAHE foreground 6.4
                     cv::erode(maskClaheFg, maskTmp, erdKern, Point(-1, -1), 6);
-                    showCvWnd("9.6.0.ErdMaskClaheFg", maskTmp, cvWnds);
+                    if(extraVis)
+                        showCvWnd("9.6.0.ErdMaskClaheFg", maskTmp, cvWnds);
                     edgesOrig -= maskTmp;
 
                     edgesOrig -= maskAth;  // 2.4.ErdCntRfnAthProbFgRoi
