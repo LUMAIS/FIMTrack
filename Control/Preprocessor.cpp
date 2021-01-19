@@ -679,14 +679,14 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                         //cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 1);
                         //showCvWnd("9.6.7.ErdCntRfnEdgesOrigRoi", maskTmp, cvWnds);
-
-                        //cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
-                        cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
-                        cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
-                        showCvWnd("9.6.8.Rfn2EdgesOrigRoi", edgesOrig, cvWnds);
-                        //edgesOrig -= maskTmp;
-                        //showCvWnd("9.6.9.ResEdgesOrigRoi", edgesOrig, cvWnds);
                     }
+                    //cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                    cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                    cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                    if(extraVis)
+                        showCvWnd("9.6.8.Rfn2EdgesOrigRoi", edgesOrig, cvWnds);
+                    //edgesOrig -= maskTmp;
+                    //showCvWnd("9.6.9.ResEdgesOrigRoi", edgesOrig, cvWnds);
 
                     // Reduce holes in maskClaheAth (or eroded maskClaheAth) by extending it with:
                     // either erode the ProbFgRoiMask (works the best)
