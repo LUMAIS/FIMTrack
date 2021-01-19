@@ -380,7 +380,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                 // Find edges (more accurate than direct contours evaluation)
                 Mat edgesOrig;  // Orifinal edges to separate touching larvae
-                cv::Canny(imgRoi, edgesOrig, max(max<float>(thrTriag * 0.86f, thrTriag-2), 0.f), thrOtsu);
+                cv::Canny(imgRoi, edgesOrig, max(max<float>(thrTriag * 0.86f, thrTriag-8), 0.f), thrOtsu);
                 // Note: maskFg and even non-reduced maskAth are not sufficient to filter inner and noisy edgesOrig, where some small contours might be remained
                 if(extraVis)
                     showCvWnd("3.1.EdgesOrigRoi", edgesOrig, cvWnds);
@@ -408,9 +408,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 ////cv::erode(maskAth, maskFlt, Math(), Point(-1, -1), 1);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD); 1 or
                 //cv::erode(maskAth, maskFlt, erdKern, Point(-1, -1), 2);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD); 1 or
                 //edgesOrig -= maskFlt;
-                edgesOrig -= maskAth;
-                if(extraVis)
-                    showCvWnd("3.3.RfnEdgesOrigRoi", edgesOrig, cvWnds);
+//                edgesOrig -= maskAth;
+//                if(extraVis)
+//                    showCvWnd("3.3.RfnEdgesOrigRoi", edgesOrig, cvWnds);
 
 
                 //// Reduce maskAth with the Probable Background (it never includes true Background but might contain the Probable Background)
@@ -540,7 +540,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 //// Note: Clahe results are pretty noisy, which makes them useless for the edge detection
                 //// Find edges (more accurate than direct contours evaluation)
                 //Mat edgesClahe;  // Orifinal edges to separate touching larvae
-                //cv::Canny(claheRoi, edgesClahe, max(max<float>(thrTriag * 0.86f, thrTriag-2), 0.f), thrOtsu);
+                //cv::Canny(claheRoi, edgesClahe, max(max<float>(thrTriag * 0.86f, thrTriag-8), 0.f), thrOtsu);
                 //// Note: maskFg and even non-reduced maskClaheAth are not sufficient to filter inner and noisy edgesClahe, where some small contours might be remained
                 //if(extraVis) {
                 //	showCvWnd("8.1.EdgesClaheRoi", edgesClahe, cvWnds);
@@ -559,10 +559,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 updateConditional2(maskClaheRoi, maskClaheAth, cv::GC_PR_BGD, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
                 if(extraVis)
                     showCvWnd("9.2.RfnErdCntRfnAthProbFgRoi", maskClaheAth, cvWnds);
-                // Refine edges, substructing maskClaheAth to eliminate noisy contours, which do not bound larvae
-                edgesOrig -= maskClaheAth;
-                if(extraVis)
-                    showCvWnd("9.3.RfnEdgesClaheRoi", edgesOrig, cvWnds);
+                //// Refine edges, substructing maskClaheAth to eliminate noisy contours, which do not bound larvae
+                //cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                //edgesOrig -= maskClaheAth;
+                //if(extraVis)
+                //    showCvWnd("9.3.RfnEdgesClaheRoi", edgesOrig, cvWnds);
                 // Refine GrabCut mask with the refined maskClaheAth as the only foreground, the remained former foreground shuold become possible foreground
                 updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);
                 // Degrade pure Foreground to the one present in maskAth
@@ -611,6 +612,79 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     //maskGcProbFg.setTo(0, maskClaheBg);  // Note: this is redundant because ProbFg never contains the true Backgound
                     if(extraVis)
                         showCvWnd("9.6.ProbFgRoiMask", maskGcProbFg, cvWnds);
+
+                    // Refine the edges
+                    cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                    // Extend with the reduced maskGcProbFg
+                    // Extensin Option 1
+//                    edgesOrig += maskGcProbFg;
+//                    // Reduce edges by the eroded maskGcProbFg to retain internal foreground
+//                    {
+//                        cv::erode(maskGcProbFg, maskTmp, erdKern, Point(-1, -1), 2);  // 8 .. 12 .. 16;
+//                        //cv::erode(maskGcProbFg, maskTmp, Mat(), Point(-1, -1), 1);  // 8 .. 12 .. 16;
+//                        edgesOrig -= maskTmp;
+//                    }
+                    // Extensin Option 2
+                    cv::Canny(maskGcProbFg, maskTmp, 0, 255);
+                    cv::dilate(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);
+                    cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);
+                    //showCvWnd("9.6.2.EdgProbFgRoiMask", maskTmp, cvWnds);
+                    edgesOrig += maskTmp;  // 9.6.ProbFgRoiMask
+//                    edgesOrig += maskGcProbFg;  // 9.6.ProbFgRoiMask
+                    // Add reduced maskGcProbFg
+                    cv::subtract(maskGcProbFg, edgesOrig, maskTmp);
+                    cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);  // 8 .. 12 .. 16;
+                    showCvWnd("9.6.-1.ErdRemMaskGcProbFg", maskTmp, cvWnds);
+                    edgesOrig += maskTmp;
+
+                    // Substract reduced CLAHE foreground 6.4
+                    cv::erode(maskClaheFg, maskTmp, erdKern, Point(-1, -1), 6);
+                    showCvWnd("9.6.0.ErdMaskClaheFg", maskTmp, cvWnds);
+                    edgesOrig -= maskTmp;
+
+                    edgesOrig -= maskAth;  // 2.4.ErdCntRfnAthProbFgRoi
+
+                    edgesOrig -= maskClaheAth;  // 9.2.RfnErdCntRfnAthProbFgRoi
+                    //// Reduce edges by the convex hulls of maskClaheAth
+                    //Mat maskHullClaheAth = Mat::zeros(maskClaheAth.size(), maskClaheAth.type());
+                    //{
+                    //    cv::findContours(maskClaheAth, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                    //    vector<contour_t>  hulls;
+                    //    hulls.reserve(contours.size());
+                    //    contour_t  hull;
+                    //    for(const auto& cnt: contours) {
+                    //        cv::convexHull(cnt, hull);
+                    //        hulls.push_back(hull);
+                    //    }
+                    //    cv::drawContours(maskHullClaheAth, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+                    //    showCvWnd("9.6.5.CntRfnEdgesOrigRoi", maskHullClaheAth, cvWnds);
+                    //}
+                    //edgesOrig -= maskHullClaheAth;  // 9.2.RfnErdCntRfnAthProbFgRoi
+
+                    if(extraVis) {
+                        showCvWnd("9.6.1.RfnEdgesOrigRoi", edgesOrig, cvWnds);
+                        //showCvWnd("9.6.2.maskTmp", maskTmp, cvWnds);
+                        showCvWnd("9.6.3.maskAth", maskAth, cvWnds);
+                        showCvWnd("9.6.4.maskClaheAth", maskClaheAth, cvWnds);
+                        //showCvWnd("9.6.5.maskClaheAthHulls", maskHullClaheAth, cvWnds);
+                        //showCvWnd("9.6.6.maskClaheFg", maskClaheFg, cvWnds);
+
+                        //cv::findContours(edgesOrig, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                        ////printf("%s> external contours 9.6.5.CntRfnEdgesOrigRoi: %lu\n", __FUNCTION__, contours.size());
+                        //maskTmp.setTo(0);
+                        //cv::drawContours(edgesOrig, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+                        //showCvWnd("9.6.6.CntRfnEdgesOrigRoi", edgesOrig, cvWnds);
+
+                        //cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 1);
+                        //showCvWnd("9.6.7.ErdCntRfnEdgesOrigRoi", maskTmp, cvWnds);
+
+                        //cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                        cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                        cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+                        showCvWnd("9.6.8.Rfn2EdgesOrigRoi", edgesOrig, cvWnds);
+                        //edgesOrig -= maskTmp;
+                        //showCvWnd("9.6.9.ResEdgesOrigRoi", edgesOrig, cvWnds);
+                    }
 
                     // Reduce holes in maskClaheAth (or eroded maskClaheAth) by extending it with:
                     // either erode the ProbFgRoiMask (works the best)
@@ -699,8 +773,17 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // Ensure that edges separating larava are present
                     imgRoiFg.setTo(0, edgesOrig);
                     //imgRoiFg.copyTo(imgFgOut(fgrect));
-                    if(extraVis)
+                    if(extraVis) {
                         showCvWnd("13.Foreground", imgRoiFg, cvWnds);  // Resulting foreground
+
+                        cv::findContours(imgRoiFg, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                        maskTmp.setTo(0);
+                        cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
+                        showCvWnd("14.CntForeground", maskTmp, cvWnds);
+
+                        const int nblobs = cv::connectedComponents(imgRoiFg, maskTmp);
+                        printf("%s> external contours 14.CntForeground: %lu, connected components: %d\n", __FUNCTION__, contours.size(), nblobs);
+                    }
 
                     //cv::findContours(imgRoiFg, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
 
