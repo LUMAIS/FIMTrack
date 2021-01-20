@@ -595,7 +595,7 @@ void OutputGenerator::drawTrackingResults(const std::string& trackImgPath,
         
         std::stringstream ss;
         ss << larvaIt->getID();
-        cv::putText(resultantTrackImage, ss.str(), midPoints.at(0), cv::FONT_HERSHEY_PLAIN, 2, color, 1);
+        cv::putText(resultantTrackImage, ss.str(), midPoints.at(0), cv::FONT_HERSHEY_PLAIN, 1.8, color, 1);
         
         for (unsigned int index = 0; index < midPoints.size(); ++index)
         {

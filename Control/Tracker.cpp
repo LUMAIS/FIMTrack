@@ -281,7 +281,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
                     if(l.values.idDlc)
                         ss << l.values.idDlc << "_";
                     ss << l.getID() << ':' << goText;
-                    putText(previewImg, ss.str(), spine.at(0), cv::FONT_HERSHEY_PLAIN, 2, Scalar(255, 255, 255), 2);
+                    putText(previewImg, ss.str(), spine.at(0), cv::FONT_HERSHEY_PLAIN, 1.8, Scalar(255, 255, 255), 2);
                 }
             }
             emit previewTrackingImageSignal(previewImg);
@@ -327,8 +327,8 @@ void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Mat* previewI
 
     if (_showTrackingProgress)
     {
-        drawContours(*previewImg, contours, -1, Scalar(130, 200, 80), 3);
-        drawContours(*previewImg, collidedContours, -1, Scalar(0, 0, 255), 8);
+        drawContours(*previewImg, contours, -1, Scalar(130, 200, 80), 2);  // 3
+        drawContours(*previewImg, collidedContours, -1, Scalar(0, 0, 255), 3);  // 8
     }
 
     _curRawLarvae.clear();
