@@ -39,9 +39,10 @@
 #include <list>
 
 #include "Configuration/FIMTrack.hpp"
-#include "Control/Backgroundsubtractor.hpp"
 
 #include <QMessageBox>
+
+using namespace FIMTypes;
 
 /**
  * @brief The Preprocessor class is used to process images and calculate contours from images.
@@ -90,7 +91,6 @@ public:
                                    int const grayThresh,
                                    int const minSizeThresh,
                                    int const maxSizeThresh,
-                                   Backgroundsubtractor const & bs,
                                    bool checkRoiBorders);
     
 private:

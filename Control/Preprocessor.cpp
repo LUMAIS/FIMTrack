@@ -1130,18 +1130,17 @@ void Preprocessor::preprocessTracking(Mat const & src,
                                       int const grayThresh,
                                       int const minSizeThresh,
                                       int const maxSizeThresh,
-                                      Backgroundsubtractor const & bs,
                                       bool checkRoiBorders)
 {
     // generate a scratch image
     Mat tmpImg = Mat::zeros(src.size(), src.type());
     
+    // perform gray threshold
+    Preprocessor::graythresh(src,grayThresh,tmpImg);
+    
     // generate a contours container scratch
     contours_t contours;
-    
-    // perform gray threshold
-    Preprocessor::graythresh(tmpImg,grayThresh,tmpImg);
-    
+
     // calculate the contours
     Preprocessor::calcContours(tmpImg,contours);
     

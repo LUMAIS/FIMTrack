@@ -90,9 +90,7 @@ void Tracker::startTrackingSlot(const std::vector<std::vector<std::string>>& mul
         _curRawLarvae.clear();
         _larvaeContainer.removeAllLarvae();
 
-        Backgroundsubtractor bs(imgPaths, undist);
-
-        uint numProcessed = track(imgPaths, bs, undist, ROIContainer);
+        uint numProcessed = track(imgPaths, undist, ROIContainer);
 
         emit logMessageSignal(QString("Postprocessing and Storage of Tracking Results"), INFO);
 
@@ -150,7 +148,6 @@ void Tracker::stopTrackingSlot()
 
 
 uint Tracker::track(const std::vector<std::string>& imgPaths,
-                    const Backgroundsubtractor& bs,
                     const Undistorter& undist,
                     RegionOfInterestContainer const* ROIContainer)
 {
@@ -207,7 +204,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
             cvtColor(img, previewImg, cv::COLOR_GRAY2BGR);
         }
 
-        extractRawLarvae(timePoint, img, bs, &previewImg, false);
+        extractRawLarvae(timePoint, img, &previewImg, false);
 
         // assignment task
         switch (LarvaeExtractionParameters::AssignmentParameters::eAssignmentMethod)
@@ -284,7 +281,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
                     if(l.values.idDlc)
                         ss << l.values.idDlc << "_";
                     ss << l.getID() << ':' << goText;
-                    putText(previewImg, ss.str(), spine.at(0), cv::FONT_HERSHEY_PLAIN, 2, Scalar(255, 255, 255), 2);
+                    putText(previewImg, ss.str(), spine.at(0), cv::FONT_HERSHEY_PLAIN, 1.8, Scalar(255, 255, 255), 2);
                 }
             }
             emit previewTrackingImageSignal(previewImg);
@@ -299,7 +296,7 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
     return timePoint;
 }
 
-void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Backgroundsubtractor const& bs, Mat* previewImg, bool checkRoiBorders)
+void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Mat* previewImg, bool checkRoiBorders)
 {
     Mat fltImg;
     static unsigned timePointPrev = 0;
@@ -325,13 +322,12 @@ void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Backgroundsub
                                      GeneralParameters::iGrayThreshold,
                                      GeneralParameters::iMinLarvaeArea,
                                      GeneralParameters::iMaxLarvaeArea,
-                                     bs,
                                      checkRoiBorders);
 
     if (_showTrackingProgress)
     {
-        drawContours(*previewImg, contours, -1, Scalar(130, 200, 80), 3);
-        drawContours(*previewImg, collidedContours, -1, Scalar(0, 0, 255), 8);
+        drawContours(*previewImg, contours, -1, Scalar(130, 200, 80), 2); // 3
+        drawContours(*previewImg, collidedContours, -1, Scalar(0, 0, 255), 3); // 8
     }
 
     _curRawLarvae.clear();

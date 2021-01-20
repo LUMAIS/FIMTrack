@@ -271,8 +271,8 @@ void MainGUI::showImage(unsigned timePoint, QString path)
     cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
     
     // draw contours into the image
-    cv::drawContours(img,contours,-1, Scalar(255,0,0), 6);
-    cv::drawContours(img,collidedContours,-1,Scalar(0,0,255), 8);
+    cv::drawContours(img,contours,-1, Scalar(255,0,0), 2);  // 6
+    cv::drawContours(img,collidedContours,-1,Scalar(0,0,255), 3);  // 8
     
     // draw contour sizes into the image
     for(auto const& c : contours)
@@ -290,7 +290,7 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         }
         // cv::contourArea(c)
         ss << 'a' << round(sqrt(rawLarva.getArea())) << ",b" << round(sqrt(rawLarva.getBrightness()));
-        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 2.2, Scalar(255,255,0), 2);
+        cv::putText(img, ss.str(), c.at(0), cv::FONT_HERSHEY_PLAIN, 1.8, Scalar(255,255,0), 2);
 
         // get the discrete spine
         vector<Point> discreteSpine = rawLarva.getDiscreteSpine();
