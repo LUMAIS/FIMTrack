@@ -187,7 +187,7 @@ void resetCvWnds(const char* wndName, unordered_set<String>& cvWnds)
     cvWnds.clear();
 }
 
-bool Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Mat& imgFgOut,
+void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Mat& imgFgOut,
                                       const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat,
                                       bool smooth, const char* wndName, bool extraVis)
 {
@@ -197,9 +197,8 @@ bool Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     if(larvae.empty()) {
         //printf("%s> empty larvae, cvWnds: %lu\n", __FUNCTION__, cvWnds.size());
         clearCvWnds(wndName, cvWnds);
-        return false;
+        return;
     }
-    bool updated = false;  // Whether the output results are updated
 
     extraVis = extraVis && wndName;  // extraVis is applicable only when wndName
     if(!extraVis) {
@@ -558,7 +557,6 @@ bool Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //bitwise_not(mask, mask);  // Invert the mask
                         //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
                     }
-                    updated = true;
                 }
             } else printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
         }
@@ -837,7 +835,6 @@ bool Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //    //grayThresh = (max(ibg, grayThesh) * 3 + grayThesh) / 4;
 //    grayThresh = (ibg * 4 + grayThesh) / 5;
 //    printf("%s> grayThresh: %d (bgEst: %u, avg: %u, xFgMin: %u; grayThesh: %u)\n", __FUNCTION__, grayThresh, ibg, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.96f)), grayThesh);
-    return updated;
 }
 
 void Preprocessor::preprocessPreview(const Mat &src,
@@ -850,12 +847,12 @@ void Preprocessor::preprocessPreview(const Mat &src,
     // generate a scratch image
     Mat tmpImg = Mat::zeros(src.size(), src.type());
     
-    // generate a contours container scratch
-    contours_t contours;
-    
     // perform gray threshold
     Preprocessor::graythresh(src,grayThresh,tmpImg);
-    
+
+    // generate a contours container scratch
+    contours_t contours;
+
     // calculate the contours
     Preprocessor::calcContours(tmpImg,contours);
     
@@ -869,17 +866,12 @@ void Preprocessor::preprocessTracking(Mat const & src,
                                       int const grayThresh,
                                       int const minSizeThresh,
                                       int const maxSizeThresh,
-                                      Backgroundsubtractor const * bs,
                                       bool checkRoiBorders)
 {
     // generate a scratch image
     Mat tmpImg = Mat::zeros(src.size(), src.type());
 
-    if(bs) {
-        // perform gray threshold
-        bs->subtractViaThresh(src,grayThresh,tmpImg);  // Perform background substruction
-        Preprocessor::graythresh(tmpImg, grayThresh, tmpImg);
-    } else Preprocessor::graythresh(src, grayThresh, tmpImg);
+    Preprocessor::graythresh(src, grayThresh, tmpImg);
     
     // generate a contours container scratch
     contours_t contours;

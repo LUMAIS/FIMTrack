@@ -50,7 +50,6 @@
 #include "Configuration/FIMTrack.hpp"
 
 #include "Control/Undistorter.hpp"
-#include "Control/Backgroundsubtractor.hpp"
 #include "Control/Preprocessor.hpp"
 #include "Control/InputGenerator.hpp"
 #include "Control/OutputGenerator.hpp"

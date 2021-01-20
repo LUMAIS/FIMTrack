@@ -7,7 +7,6 @@ HEADERS += \
     Control/Logger.hpp \
     Control/InputGenerator.hpp \
     Control/Calc.hpp \
-    Control/Backgroundsubtractor.hpp \
     Control/LarvaeContainer.hpp
 
 SOURCES += \
@@ -19,5 +18,4 @@ SOURCES += \
     Control/Logger.cpp \
     Control/InputGenerator.cpp \
     Control/Calc.cpp \
-    Control/Backgroundsubtractor.cpp \
     Control/LarvaeContainer.cpp
