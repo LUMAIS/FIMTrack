@@ -302,31 +302,42 @@ uint Tracker::track(const std::vector<std::string>& imgPaths,
 void Tracker::extractRawLarvae(unsigned timePoint, const Mat& img, Backgroundsubtractor const& bs, Mat* previewImg, bool checkRoiBorders)
 {
     Mat fltImg;
-    static unsigned timePointPrev = 0;
+    contours_t contours;
+    contours_t collidedContours;
+
     if(_larvaeContainer.dlcTrack.active && _larvaeContainer.dlcTrack.autoThreshold && timePoint < _larvaeContainer.dlcTrack.size()) {
-        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg,
+        static unsigned timePointPrev = 0;
+        const bool estimated = Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg,
                                          img, _larvaeContainer.dlcTrack.larvae(timePoint), _larvaeContainer.dlcTrack.matchStat(),
                                          timePointPrev + 1 == timePoint, nullptr, false);
+        timePointPrev = timePoint;
         if(AutoThresholdingLimits::iMinLarvaeArea && GeneralParameters::iMinLarvaeArea < AutoThresholdingLimits::iMinLarvaeArea)
             GeneralParameters::iMinLarvaeArea = AutoThresholdingLimits::iMinLarvaeArea;
         if(AutoThresholdingLimits::iMaxLarvaeArea && GeneralParameters::iMaxLarvaeArea > AutoThresholdingLimits::iMaxLarvaeArea)
             GeneralParameters::iMaxLarvaeArea = AutoThresholdingLimits::iMaxLarvaeArea;
         printf("%s> timePoint: %u, thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
             , __FUNCTION__, timePoint, GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
-    }
-    else fltImg = img;
-    timePointPrev = timePoint;
 
-    contours_t contours;
-    contours_t collidedContours;
-    Preprocessor::preprocessTracking(fltImg,
-                                     contours,
-                                     collidedContours,
-                                     GeneralParameters::iGrayThreshold,
-                                     GeneralParameters::iMinLarvaeArea,
-                                     GeneralParameters::iMaxLarvaeArea,
-                                     bs,
-                                     checkRoiBorders);
+        Preprocessor::preprocessTracking(fltImg,
+                                         contours,
+                                         collidedContours,
+                                         GeneralParameters::iGrayThreshold,
+                                         GeneralParameters::iMinLarvaeArea,
+                                         GeneralParameters::iMaxLarvaeArea,
+                                         estimated ? nullptr : &bs,
+                                         checkRoiBorders);
+    }
+    else {
+        fltImg = img;
+        Preprocessor::preprocessTracking(fltImg,
+                                         contours,
+                                         collidedContours,
+                                         GeneralParameters::iGrayThreshold,
+                                         GeneralParameters::iMinLarvaeArea,
+                                         GeneralParameters::iMaxLarvaeArea,
+                                         &bs,
+                                         checkRoiBorders);
+    }
 
     if (_showTrackingProgress)
     {

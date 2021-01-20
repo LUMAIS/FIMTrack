@@ -54,15 +54,16 @@ public:
      * @param grayThresh  - grey threshold
      * @param minSizeThresh  - min expected size of a larva
      * @param maxSizeThresh  - max expected size of a larva
-     * @param imgFg  - resulting foreground image
+     * @param[out] imgFg  - resulting foreground image
      * @param imgGray  - input gray-scale image
      * @param larvae  - DLC-tracked larvae
      * @param matchStat  - matching statistics
      * @param smooth  - smooth grayThresh relying on previous values (shuould be true only for the subsequently processing frames)
      * @param wndName  - window name to display foreground ROI
      * @param extraVis  - extra visualization for the visual tracing and debugging, applicable only when wndName. WARNING: should not be used in the tracking mode (and other frequent subsequent calls) because of the OpenCV incompability with (QT) multithreading
+     * @return whether the thresholds are successsfully estimated
      */
-    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Mat& imgFg,
+    static bool estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Mat& imgFg,
                                    const cv::Mat& imgGray, const dlc::Larvae& larvae,
                                    const dlc::MatchStat& matchStat, bool smooth=false,
                                    const char* wndName=nullptr, bool extraVis=true);
@@ -90,7 +91,7 @@ public:
                                    int const grayThresh,
                                    int const minSizeThresh,
                                    int const maxSizeThresh,
-                                   Backgroundsubtractor const & bs,
+                                   Backgroundsubtractor const * bs,
                                    bool checkRoiBorders);
     
 private:

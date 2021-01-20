@@ -71,7 +71,7 @@ void Backgroundsubtractor::subtractViaThresh(cv::Mat const& src, int const gThre
         for (int col = 0; col < src.cols; ++col)
         {
             const uchar  biv = this->_backgroundImage.at<uchar>(row, col);
-            if (abs(src.at<uchar>(row, col) - biv <= abs(gThresh - biv)))
+            if (abs(src.at<uchar>(row, col) - biv) <= abs(gThresh - biv))
             {
                 dst.at<uchar>(row, col) = 0;
             }
