@@ -1053,7 +1053,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //        }
 //        //fprintf(stderr, "area: %f, brightness: %u\n", area, bval);
     }
-    cv::Scalar mean, stddev;
+    cv::Scalar mean{0}, stddev{0};
     cv::meanStdDev(areas, mean, stddev);
     std::sort(areas.begin(), areas.end());
     //const folat  rstd = 4;  // (3 .. 5+);  Note: 3 convers ~ 96% of results, but we should extend those margins
@@ -1061,7 +1061,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     const float  expPerimMin = matchStat.distAvg - 0.36f * matchStat.distStd;  // 0.3 .. 0.4
     //minSizeThresh = (max<int>(min<int>(mean[0] - 4 * stddev[0], 0.56f * areas[0]), areas[0] * 0.36f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
     // Note: only DLC-tracked larvae are reqrured to be detected, so the thresholds can be strict
-    minSizeThresh = (max<int>(min<int>(mean[0] - stddev[0], 0.92f * areas[0]), areas[0] * 0.82f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
+    //const auto  stdBounded = max(mean[0], stddev[0]);  // ATTENTION: for the (almost) empty images, std might be negative int (uninitialized)
+    minSizeThresh = (max<int>(min<int>(max<int>(mean[0] - stddev[0], 0), 0.92f * areas[0]), areas[0] * 0.82f) + expPerimMin * expPerimMin) / 2;  // 0.56 area ~= 0.75 perimiter; 0.36 a ~= 0.6 p
     const float  expPerimMax = matchStat.distAvg + 3.8f * matchStat.distStd;  // 3.6 .. 3.8
 ////    maxSizeThresh = (min<int>(max<int>(mean[0] + 5 * stddev[0], 2.5f * areas[areas.size() - 1]), areas[areas.size() - 1] * 3.24f) + expPerimMax * expPerimMax) / 2;  // 2.5 area ~= 1.58 perimiter; 3.24 a ~= 1.8 p
     maxSizeThresh = (min<int>(max<int>(mean[0] + 2 * stddev[0], 2.5f * areas[areas.size() - 1]), areas[areas.size() - 1] * 3.24f) + expPerimMax * expPerimMax) / 2;  // 2.5 area ~= 1.58 perimiter; 3.24 a ~= 1.8 p
@@ -1099,6 +1100,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //    //grayThresh = (max(ibg, grayThesh) * 3 + grayThesh) / 4;
 //    grayThresh = (ibg * 4 + grayThesh) / 5;
 //    printf("%s> grayThresh: %d (bgEst: %u, avg: %u, xFgMin: %u; grayThesh: %u)\n", __FUNCTION__, grayThresh, ibg, (ibg + ifgmin) / 2, unsigned(round(ifgmin * 0.96f)), grayThesh);
+
+    assert(grayThresh >= 0 && minSizeThresh >= 0 && maxSizeThresh >= 0 && "Unexpected resulting values");
 }
 
 void Preprocessor::preprocessPreview(const Mat &src,
