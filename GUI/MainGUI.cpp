@@ -211,10 +211,6 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         return;
     }
 
-    // Filter DLC-loaded trajectories on initialization
-    if(!timePoint && this->_dlcTrack.active)
-        this->_dlcTrack.filter({0, 0, img.cols, img.rows});
-
     // undistor the input image
     if(this->_undistorter.isReady())
     {

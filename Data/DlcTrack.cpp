@@ -74,7 +74,9 @@ bool importVideo(const string& vidName, const string& outpDir, const string& fra
 //    return cmpPoint(larva.center, center);
 //}
 
-bool Tracker::loadHDF5(const string& filename)
+const cv::Rect Tracker::DFL_ROI = cv::Rect(0, 0, USHRT_MAX, USHRT_MAX);
+
+bool Tracker::loadHDF5(const string& filename, const cv::Rect& roi)
 {
     struct DataPoint {
         int64_t frame;
@@ -158,7 +160,7 @@ bool Tracker::loadHDF5(const string& filename)
 //    return loadTrajects(lsvs, nlvs);
 }
 
-bool Tracker::loadCSV(const string& filename)
+bool Tracker::loadCSV(const string& filename, const cv::Rect& roi)
 {
     std::ifstream finp(filename);
     if(!finp.is_open()) {
@@ -237,7 +239,7 @@ bool Tracker::loadCSV(const string& filename)
         Mat valsView(1, lsvs[0].size(), cv::DataType<val_t>::type, vals.data());
         rawVals.push_back(valsView);
     }
-    return loadTrajects(rawVals, nlvs);
+    return loadTrajects(rawVals, nlvs, roi);
 }
 
 //bool Tracker::loadJSON(const string& filename)
@@ -279,7 +281,7 @@ bool Tracker::loadCSV(const string& filename)
 //    }
 //}
 
-bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
+bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect& roi, float confmin)
 {
     if(rawVals.empty() || rawVals.cols % (nlarvae * _larvaPtCols)) {  // nlarvae * (x, y, likelihood)
         fprintf(stderr, "ERROR %s> Invalid size of rawVals\n", __FUNCTION__);
@@ -315,6 +317,8 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
     Larva  lv;
     vector<float>  distances;
     distances.reserve(rawVals.rows * rawVals.cols / 2);  // Some raw larva are likely to be filtered out
+    unsigned  nfopts = 0;  // The number of filtered out points of larva contours (invalid coordinates only, excluding the dependent points)
+    unsigned  nfolvs = 0;  // The number of filtered out larvae
 
     for(int i = 0; i < rawVals.rows; ++i) {
         Larvae  larvae;
@@ -326,23 +330,14 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
                 // ATTENTION: ids are assigned to the original larvae even if they are empty and omitted, otherwise ids would be invalid
                 lv.id = ++uid;  // Note: ids should start from 1, 0 indicates non-tracable larva
                 if(lv.points.size() >= lvPtsMin) {
-                   //cv::Scalar  center = cv::mean(lv);
-                   //lv.center = Point(round(center.x), round(center.y))
                    lv.center = toPoint(cv::mean(lv.points));
-                   // Note: larvae filtering is performed later to handle both min and max margins
-                   if(lv.center.x < 0 || lv.center.y < 0) {
-                       printf("WARNING %s> #%u.center[t=%d] is negative: (%d, %d), points: ", __FUNCTION__
-                           , uid, i, lv.center.x, lv.center.y);
-                       for(const auto& pt: lv.points)
-                           printf(" (%d, %d)", pt.x, pt.y);
-                       puts("");  // Endl
-                   }
+                   // Note: lavra points validation is already performed
                    larvae.push_back(lv);
 
                    // Store distances from the center
                    for(const auto& pt: lv.points)
                        distances.push_back(norm(lv.center - pt));
-                }
+                } else ++nfolvs;
                 lv.clear();
             }
             // Each 3rd value is likelihood
@@ -354,8 +349,13 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
             //  || rvRow[j] < 0 rvRow[j+1] < 0
             const auto x = rvRow[j];
             const auto y = rvRow[j+1];
-            if(lkh < confmin || std::isnan(lkh) || std::isnan(x) || std::isnan(y))  // Note: sometimes x or y is NaN for valid likelihood (e.g., vid_2 #4[0])
+            // Validate larva points
+            // Note: sometimes x or y is NaN for valid likelihood (e.g., vid_2 #4[0])
+            if(lkh < confmin || std::isnan(lkh) || std::isnan(x) || std::isnan(y)
+            || x < roi.x || x >= roi.x + roi.width || y < roi.y || y >= roi.y + roi.height) {
+                ++nfopts;
                 continue;
+            }
             lv.points.emplace_back(round(x), round(y));
         }
         _trajects.push_back(larvae);
@@ -366,6 +366,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         _matchStat.distAvg = mean[0];
         _matchStat.distStd = stddev[0];
     }
+
+    if(nfopts || nfolvs)
+        printf("WARNING %s> filtered out: %u larvae, including %u invalid points\n", __FUNCTION__
+            , nfolvs, nfopts);
 
     printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size(), confmin);
     if(!_trajects.empty()) {
