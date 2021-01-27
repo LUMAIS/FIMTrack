@@ -106,15 +106,20 @@ void OutputGenerator::writeCSVFile(std::string const& path,
                                    size_t movieLength,
                                    LandmarkContainer const* landmarkContainer)
 {
+    if(larvae.empty()) {
+        fputs("WARNING: the resulting CSV file is not generated because there are no tracked (recognized) larvae\n", stderr);
+        return;
+    }
+
     std::ofstream ofs;
     ofs.open(path.c_str());
-    
+
     for (size_t i = 0; i < larvae.size(); ++i)
     {
         ofs << "," << "larva(" << larvae.at(i).getID() << ")";
     }
     ofs << std::endl;
-    
+
     // write momentum_x
     for (size_t t = 0; t < movieLength; ++t)
     {
@@ -127,7 +132,7 @@ void OutputGenerator::writeCSVFile(std::string const& path,
         
         ofs << std::endl;
     }
-    
+
     // write momentum_y
     for (size_t t = 0; t < movieLength; ++t)
     {
@@ -529,8 +534,7 @@ void OutputGenerator::writeCSVFile(std::string const& path,
     }
     
     ofs.flush();
-    ofs.close();
-    
+    ofs.close();   
 }
 
 void OutputGenerator::writeYMLFile(const std::string& path,

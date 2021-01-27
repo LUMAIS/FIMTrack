@@ -34,10 +34,10 @@
 #include <array>
 #include <algorithm>
 #include <unordered_set>
-#if defined(DEBUG) || defined(_DEBUG)
-#include <thread>  // Required to wait for the window popup to show additional informaiton on crash
-#include <chrono>
-#endif  // DEBUG
+//#if defined(DEBUG) || defined(_DEBUG)
+//#include <thread>  // Required to wait for the window popup to show additional informaiton on crash
+//#include <chrono>
+//#endif  // DEBUG
 #include "Preprocessor.hpp"
 
 using namespace cv;
@@ -187,7 +187,7 @@ void clearCvWnds(const char* wndName, unordered_set<String>& cvWnds)
 
 void resetCvWnds(const char* wndName, unordered_set<String>& cvWnds)
 {
-    if(cvWnds.size() <= 1)
+    if(cvWnds.empty())
         return;
     cv::destroyAllWindows();  // Destroy OpenCV windows
     cvWnds.clear();
@@ -284,9 +284,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             Mat maskBg;  // Mask for the pure Background (both by OTSU andTriangle) of the original ROI
 
             //! \brief Compose mask from the probable foreground and probable background components
+            //! \pre maskCompound should be preset to cv::GC_PR_BGD
+            //!
             //! \param maskFg  - probable foreground mask, which is reduced to the pure foreground
             //! \param maskBg  - probable background mask, which is reduced to the pure background
-            //! \param[in,out] maskFg  - resulting compound mask with GrabCut labels, which should be preset to cv::GC_PR_BGD
+            //! \param[in,out] maskCompound  - resulting compound mask with GrabCut labels
             auto composeMask = [&maskTmp](Mat& maskFg, Mat& maskBg, Mat& maskCompound)
             {
                 // Identify the disaggrement of masks
@@ -306,18 +308,18 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             // Apply thresholds to the original image to identify Foregrounds and Backgrounds (probable and pure/clear)
             // Identify the probable Foreground
             const int  thrOtsu = cv::threshold(imgRoi, maskFg, 0, 0xFF, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU; 0 o 8; 255 or 196
+            // Identify the probable Background
+            const int  thrTriag = cv::threshold(imgRoi, maskBg, 0, 0xFF, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or
+            thrBrightRaw = thrTriag;
+            //if(DEV_MODE >= 10 && extraVis) {
+            //    showCvWnd("1.1.ProbFg", maskFg, cvWnds);
+            //    showCvWnd("1.2.ProbBg", maskBg, cvWnds);
+            //}
 
             const unsigned  probFgBgArea = min(cv::countNonZero(maskFg), cv::countNonZero(maskBg));
             const unsigned  opClaheIters = 1 + round(matchStat.distAvg / 20.f);  // Operation iterations; ~= 2 for vid_!; 24 -> 12 for FG; 16 -> 8  // 12..16 for probable foreground; 6 .. 8 for the foreground
             bool nofg = false;  // The true foreground is not available
             if(probFgBgArea > opClaheIters * opClaheIters && probFgBgArea < maskFg.rows * maskFg.cols - opClaheIters * opClaheIters) {
-                // Identify the probable Background
-                const int  thrTriag = cv::threshold(imgRoi, maskBg, 0, 0xFF, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or
-                thrBrightRaw = thrTriag;
-                //if(DEV_MODE >= 10 && extraVis) {
-                //    showCvWnd("1.1.ProbFg", maskFg, cvWnds);
-                //    showCvWnd("1.2.ProbBg", maskBg, cvWnds);
-                //}
                 if(DEV_MODE >= 2 && extraVis) {
                     composeMask(maskFg, maskBg, maskRoi);
                     showGrabCutMask("1.3.MaskOrigROI", maskRoi, cvWnds);
@@ -628,10 +630,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         cv::grabCut(imgClr, maskClaheRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
                     } catch(cv::Exception& err) {
                         printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
-#if defined(DEBUG) || defined(_DEBUG)
-                        showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
-                        std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
-#endif  // DEBUG
+//#if defined(DEBUG) || defined(_DEBUG)
+//                        showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
+//                        std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
+//#endif  // DEBUG
                         throw;
                     }
                     if(DEV_MODE >= 3 && extraVis)
@@ -836,11 +838,17 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 }
 #if defined(DEBUG) || defined(_DEBUG)
                 else nofg = true;
-#endif
+#endif  // DEBUG
             } else nofg = true;
-            if(nofg)
+            if(nofg) {
                 printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
-            imgFgOut = img;
+                imgFgOut = img;
+//#if defined(DEBUG) || defined(_DEBUG)
+//                showGrabCutMask("maskCompound", maskTmp, cvWnds);
+//                std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
+//                throw std::logic_error("Debug Exception");
+//#endif  // DEBUG
+            } else assert(!imgRoiFg.empty() && "Unexpeted imgFgOut content");
         }
 
         // Evaluate brightness

@@ -814,12 +814,11 @@ void MainGUI::on_cbAutoThresholds_stateChanged(int state)
         ui->spinBox_maxSizeThresh->setEnabled(true);
         ui->spinBox_minSizeThresh->setEnabled(true);
         _dlcTrack.autoThreshold = false;
-        cv::destroyWindow(_dlcTrack.wndFgName);
+        cv::destroyAllWindows();  // Destroy OpenCV windows used for the visual inspection in the preview mode
     } else {
         ui->spinBox_graythresh->setEnabled(false);
         ui->spinBox_maxSizeThresh->setEnabled(false);
         ui->spinBox_minSizeThresh->setEnabled(false);
         _dlcTrack.autoThreshold = true;
-        cv::namedWindow(_dlcTrack.wndFgName);
     }
 }
