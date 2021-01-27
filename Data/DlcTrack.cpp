@@ -320,6 +320,7 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect&
     unsigned  nfopts = 0;  // The number of filtered out points of larva contours (invalid coordinates only, excluding the dependent points)
     unsigned  nfolvs = 0;  // The number of filtered out larvae
 
+    _trajects.reserve(rawVals.rows);
     for(int i = 0; i < rawVals.rows; ++i) {
         Larvae  larvae;
         const ValT* rvRow = rawVals.ptr<ValT>(i);
@@ -360,6 +361,7 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect&
         }
         _trajects.push_back(larvae);
     }
+    assert(_trajects.size() == rawVals.rows && "Unexpected number of the loaded trajectories");
     if(!distances.empty()) {
         cv::Scalar  mean, stddev;
         cv::meanStdDev(distances, mean, stddev);
@@ -368,8 +370,8 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect&
     }
 
     if(nfopts || nfolvs)
-        printf("WARNING %s> filtered out: %u larvae, including %u invalid points\n", __FUNCTION__
-            , nfolvs, nfopts);
+        printf("WARNING %s> filtered out on %d frames: %u larvae, including %u\n", __FUNCTION__
+            , rawVals.rows, nfolvs, nfopts);
 
     printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f, roi: (%d, %d, %d, %d)\n", __FUNCTION__
            , larvaCols, lvPtsMin, _trajects.size(), confmin, roi.x, roi.y, roi.width, roi.height);

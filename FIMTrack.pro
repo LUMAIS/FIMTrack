@@ -26,6 +26,7 @@ CONFIG  += debug_and_release
 #CONFIG += build_all
 
 CONFIG(debug, debug|release) {
+    QMAKE_CXXFLAGS += -DDEBUG
     DESTDIR     = build/debug/bin
     OBJECTS_DIR = build/debug
     MOC_DIR     = build/debug

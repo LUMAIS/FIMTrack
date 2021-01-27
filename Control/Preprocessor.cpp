@@ -34,6 +34,10 @@
 #include <array>
 #include <algorithm>
 #include <unordered_set>
+#if defined(DEBUG) || defined(_DEBUG)
+#include <thread>  // Required to wait for the window popup to show additional informaiton on crash
+#include <chrono>
+#endif  // DEBUG
 #include "Preprocessor.hpp"
 
 using namespace cv;
@@ -303,9 +307,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             // Identify the probable Foreground
             const int  thrOtsu = cv::threshold(imgRoi, maskFg, 0, 0xFF, cv::THRESH_BINARY | cv::THRESH_OTSU);  // THRESH_TRIANGLE, THRESH_OTSU; 0 o 8; 255 or 196
 
-            const unsigned  probFgArea = cv::countNonZero(maskFg);
+            const unsigned  probFgBgArea = min(cv::countNonZero(maskFg), cv::countNonZero(maskBg));
             const unsigned  opClaheIters = 1 + round(matchStat.distAvg / 20.f);  // Operation iterations; ~= 2 for vid_!; 24 -> 12 for FG; 16 -> 8  // 12..16 for probable foreground; 6 .. 8 for the foreground
-            if(probFgArea > opClaheIters * opClaheIters && probFgArea < maskFg.rows * maskFg.cols - opClaheIters * opClaheIters) {
+            bool nofg = false;  // The true foreground is not available
+            if(probFgBgArea > opClaheIters * opClaheIters && probFgBgArea < maskFg.rows * maskFg.cols - opClaheIters * opClaheIters) {
                 // Identify the probable Background
                 const int  thrTriag = cv::threshold(imgRoi, maskBg, 0, 0xFF, cv::THRESH_BINARY_INV | cv::THRESH_TRIANGLE);  // THRESH_TRIANGLE, THRESH_OTSU;  0 o 8; 255 or
                 thrBrightRaw = thrTriag;
@@ -602,16 +607,33 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
 
                 // Apply GrabCut to segment larva foreground vs background using hints
+#if defined(DEBUG) || defined(_DEBUG)
+                // Ensure that foreground is not empty
+                maskTmp.setTo(0);
+                updateConditional2(maskClaheRoi, maskTmp, cv::GC_FGD, 0, 0xFF);
+                unsigned  probFgBgArea = cv::countNonZero(maskTmp);
+                if(probFgBgArea >= opClaheIters * opClaheIters) {
+                    maskTmp.setTo(0);
+                    updateConditional2(maskClaheRoi, maskTmp, cv::GC_BGD, 0, 0xFF);
+                    probFgBgArea = cv::countNonZero(maskTmp);
+                }
+                if(probFgBgArea > opClaheIters * opClaheIters && probFgBgArea < maskTmp.rows * maskTmp.cols - opClaheIters * opClaheIters)
+#endif  // DEBUG
                 {
                     Mat bgdModel, fgdModel;
                     Mat imgClr;
                     cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
 
-                    //try {
+                    try {
                         cv::grabCut(imgClr, maskClaheRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
-                    //} catch(cv::Exception& err) {
-                    //    printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
-                    //}
+                    } catch(cv::Exception& err) {
+                        printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
+#if defined(DEBUG) || defined(_DEBUG)
+                        showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
+                        std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
+#endif  // DEBUG
+                        throw;
+                    }
                     if(DEV_MODE >= 3 && extraVis)
                          showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
 
@@ -812,7 +834,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
                     }
                 }
-            } else printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
+#if defined(DEBUG) || defined(_DEBUG)
+                else nofg = true;
+#endif
+            } else nofg = true;
+            if(nofg)
+                printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
+            imgFgOut = img;
         }
 
         // Evaluate brightness
@@ -843,7 +871,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
         //    cv::absdiff(imgRoiFg, imgRoiFgPrev, imgRoiRes);
         //    showCvWnd("FrameDiff: ", imgRoiRes, cvWnds);
         //    printf("%s> acc bright: %u, diff pix: %d / %d, diff: %f (res: %f)\n", __FUNCTION__,
-        //        brightness, countNonZero(imgRoiRes), imgRoiRes.rows * imgRoiRes.cols, cv::sum(imgRoiFg) - cv::sum(imgRoiFgPrev), cv::sum(imgRoiRes));
+        //        brightness, cv::countNonZero(imgRoiRes), imgRoiRes.rows * imgRoiRes.cols, cv::sum(imgRoiFg) - cv::sum(imgRoiFgPrev), cv::sum(imgRoiRes));
         //    cv::threshold(imgRoiRes, imgRoiRes, 0, 0xFF, cv::THRESH_BINARY);
         //    showCvWnd("MaskFrameDiff: ", imgRoiRes, cvWnds);
         //}
