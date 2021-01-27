@@ -111,6 +111,7 @@ private slots:
 
 private:
     dlc::Tracker                _dlcTrack;
+    cv::Size                    _workAreaSize;
 
     Ui::MainGUI*                ui;
     PreferencesDialogWindow*    _preferencesDialogWindow;

@@ -74,7 +74,9 @@ bool importVideo(const string& vidName, const string& outpDir, const string& fra
 //    return cmpPoint(larva.center, center);
 //}
 
-bool Tracker::loadHDF5(const string& filename)
+const cv::Rect Tracker::DFL_ROI = cv::Rect(0, 0, USHRT_MAX, USHRT_MAX);
+
+bool Tracker::loadHDF5(const string& filename, const cv::Rect& roi)
 {
     struct DataPoint {
         int64_t frame;
@@ -158,7 +160,7 @@ bool Tracker::loadHDF5(const string& filename)
 //    return loadTrajects(lsvs, nlvs);
 }
 
-bool Tracker::loadCSV(const string& filename)
+bool Tracker::loadCSV(const string& filename, const cv::Rect& roi)
 {
     std::ifstream finp(filename);
     if(!finp.is_open()) {
@@ -237,7 +239,7 @@ bool Tracker::loadCSV(const string& filename)
         Mat valsView(1, lsvs[0].size(), cv::DataType<val_t>::type, vals.data());
         rawVals.push_back(valsView);
     }
-    return loadTrajects(rawVals, nlvs);
+    return loadTrajects(rawVals, nlvs, roi);
 }
 
 //bool Tracker::loadJSON(const string& filename)
@@ -279,7 +281,7 @@ bool Tracker::loadCSV(const string& filename)
 //    }
 //}
 
-bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
+bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect& roi, float confmin)
 {
     if(rawVals.empty() || rawVals.cols % (nlarvae * _larvaPtCols)) {  // nlarvae * (x, y, likelihood)
         fprintf(stderr, "ERROR %s> Invalid size of rawVals\n", __FUNCTION__);
@@ -315,7 +317,10 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
     Larva  lv;
     vector<float>  distances;
     distances.reserve(rawVals.rows * rawVals.cols / 2);  // Some raw larva are likely to be filtered out
+    unsigned  nfopts = 0;  // The number of filtered out points of larva contours (invalid coordinates only, excluding the dependent points)
+    unsigned  nfolvs = 0;  // The number of filtered out larvae
 
+    _trajects.reserve(rawVals.rows);
     for(int i = 0; i < rawVals.rows; ++i) {
         Larvae  larvae;
         const ValT* rvRow = rawVals.ptr<ValT>(i);
@@ -326,23 +331,14 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
                 // ATTENTION: ids are assigned to the original larvae even if they are empty and omitted, otherwise ids would be invalid
                 lv.id = ++uid;  // Note: ids should start from 1, 0 indicates non-tracable larva
                 if(lv.points.size() >= lvPtsMin) {
-                   //cv::Scalar  center = cv::mean(lv);
-                   //lv.center = Point(round(center.x), round(center.y))
                    lv.center = toPoint(cv::mean(lv.points));
-                   // Note: larvae filtering is performed later to handle both min and max margins
-                   if(lv.center.x < 0 || lv.center.y < 0) {
-                       printf("WARNING %s> #%u.center[t=%d] is negative: (%d, %d), points: ", __FUNCTION__
-                           , uid, i, lv.center.x, lv.center.y);
-                       for(const auto& pt: lv.points)
-                           printf(" (%d, %d)", pt.x, pt.y);
-                       puts("");  // Endl
-                   }
+                   // Note: lavra points validation is already performed
                    larvae.push_back(lv);
 
                    // Store distances from the center
                    for(const auto& pt: lv.points)
                        distances.push_back(norm(lv.center - pt));
-                }
+                } else ++nfolvs;
                 lv.clear();
             }
             // Each 3rd value is likelihood
@@ -354,12 +350,18 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
             //  || rvRow[j] < 0 rvRow[j+1] < 0
             const auto x = rvRow[j];
             const auto y = rvRow[j+1];
-            if(lkh < confmin || std::isnan(lkh) || std::isnan(x) || std::isnan(y))  // Note: sometimes x or y is NaN for valid likelihood (e.g., vid_2 #4[0])
+            // Validate larva points
+            // Note: sometimes x or y is NaN for valid likelihood (e.g., vid_2 #4[0])
+            if(lkh < confmin || std::isnan(lkh) || std::isnan(x) || std::isnan(y)
+            || x < roi.x || x >= roi.x + roi.width || y < roi.y || y >= roi.y + roi.height) {
+                ++nfopts;
                 continue;
+            }
             lv.points.emplace_back(round(x), round(y));
         }
         _trajects.push_back(larvae);
     }
+    assert(_trajects.size() == rawVals.rows && "Unexpected number of the loaded trajectories");
     if(!distances.empty()) {
         cv::Scalar  mean, stddev;
         cv::meanStdDev(distances, mean, stddev);
@@ -367,7 +369,12 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, float confmin)
         _matchStat.distStd = stddev[0];
     }
 
-    printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size(), confmin);
+    if(nfopts || nfolvs)
+        printf("WARNING %s> filtered out on %d frames: %u larvae, including %u\n", __FUNCTION__
+            , rawVals.rows, nfolvs, nfopts);
+
+    printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f, roi: (%d, %d, %d, %d)\n", __FUNCTION__
+           , larvaCols, lvPtsMin, _trajects.size(), confmin, roi.x, roi.y, roi.width, roi.height);
     if(!_trajects.empty()) {
         unsigned  iframe = 0;
         for(const auto& tr: _trajects) {
@@ -448,6 +455,69 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
     cv::Scalar mean, stddev;
     cv::meanStdDev(contour, mean, stddev);
     return matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp);
+}
+
+cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span, vector<Larva::Points>* larvaHulls)
+{
+    // Identify an approximate foregroud ROI
+    // Note: initially, store top-left and bottom-right points in the rect, and ther change the latter to height-width
+    cv::Rect  fgrect = {area.width, area.height, 0, 0};
+
+    // Identify the foreground ROI as an approximaiton (convexHull) of the DLC-tracked larva contours
+    Larva::Points  hull;
+    vector<Larva::Points> hulls;
+    for(const auto& lv: larvae) {
+        // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
+        hull.reserve(lv.points.size());
+        cv::convexHull(lv.points, hull);
+        hulls.push_back(std::move(hull));
+
+        for(const auto& pt: lv.points) {
+            if(pt.x < fgrect.x)
+                fgrect.x = pt.x;
+            if(pt.x > fgrect.width)
+                fgrect.width = pt.x;
+
+            if(pt.y < fgrect.y)
+                fgrect.y = pt.y;
+            if(pt.y > fgrect.height)
+                fgrect.height = pt.y;
+        }
+    }
+    // Convert bottom-right to height-width
+    fgrect.width -= fgrect.x;
+    fgrect.height -= fgrect.y;
+    //if(!(fgrect.x >= 0 && fgrect.y >= 0))
+    //    printf("%s> fgrect initial: %d + %d of %d, %d + %d of %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    //assert(fgrect.x >= 0 && fgrect.y >= 0 && "Coordinates validation failed");
+    //printf("%s> fgrect initial: %d + %d of %d, %d + %d of %f\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows);
+    if(!fgrect.empty()) {
+        // Expand the foreground ROI with the statistical span
+        //const int  span = matchStat.distAvg + matchStat.distStd;  // Note: we expend from the border points rather thatn from the center => *1..2 rather than *3
+        int dx = span;
+        fgrect.x -= dx;
+        if(fgrect.x < 0) {
+            dx += fgrect.x;
+            fgrect.x = 0;
+        }
+        int dy = span;
+        fgrect.y -= dy;
+        if(fgrect.y < 0) {
+            dy += fgrect.y;
+            fgrect.y = 0;
+        }
+        fgrect.width += dx + span;
+        if(fgrect.x + fgrect.width >= area.width)
+            fgrect.width = area.width - fgrect.x;
+        fgrect.height += dy + span;
+        if(fgrect.y + fgrect.height >= area.height)
+            fgrect.height = area.height - fgrect.y;
+        //printf("%s> fgrect: (%d + %d of %d, %d + %d of %d), span: %d\n", __FUNCTION__, fgrect.x, fgrect.width, img.cols, fgrect.y, fgrect.height, img.rows, span);
+    }
+
+    if(larvaHulls)
+        *larvaHulls = move(hulls);
+    return fgrect;
 }
 
 unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint)

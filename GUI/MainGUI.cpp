@@ -41,7 +41,8 @@ using std::string;
 MainGUI::MainGUI(QWidget *parent) : 
     QMainWindow(parent), 
     ui(new Ui::MainGUI),
-    _tracker(_dlcTrack)
+    _tracker(_dlcTrack),
+    _workAreaSize(USHRT_MAX, USHRT_MAX)
 {
     try
     {
@@ -211,9 +212,7 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         return;
     }
 
-    // Filter DLC-loaded trajectories on initialization
-    if(!timePoint && this->_dlcTrack.active)
-        this->_dlcTrack.filter({0, 0, img.cols, img.rows});
+    this->_workAreaSize = img.size();
 
     // undistor the input image
     if(this->_undistorter.isReady())
@@ -418,6 +417,7 @@ void MainGUI::on_btnTrack_clicked()
         this->ui->treeView->setEnabled(false);
         this->ui->cbAutoThresholds->setEnabled(false);
         this->ui->btnLoadDlcTrack->setEnabled(false);
+        this->ui->cbDlcTrack->setEnabled(false);
 
         std::vector<std::vector<std::string> > multiImgPaths;
         std::vector<std::string> strList;
@@ -435,13 +435,10 @@ void MainGUI::on_btnTrack_clicked()
         }
         emit startTrackingSignal(multiImgPaths, this->ui->checkBoxShowTrackingProgress->isChecked(), this->_undistorter, this->_scene->getROIContainer());
     }
-    
     else if(this->ui->btnTrack->text() == "Stop")
     {
         emit stopTrackingSignal();
-        
         this->ui->btnTrack->setEnabled(false);
-        this->ui->btnLoadDlcTrack->setEnabled(false);
     }
 }
 
@@ -479,6 +476,8 @@ void MainGUI::setupBaseGUIElements(bool enable)
     this->ui->progressBar->setValue(0);
 
     this->ui->cbAutoThresholds->setEnabled(enable && !this->ui->lb_DlcFile->text().isEmpty());
+    this->ui->btnLoadDlcTrack->setEnabled(enable && this->ui->cbDlcTrack->isChecked());
+    this->ui->cbDlcTrack->setEnabled(enable);
 }
 
 void MainGUI::on_btnPreview_clicked()
@@ -530,9 +529,9 @@ void MainGUI::trackingDoneSlot()
         }
         this->ui->treeView->setEnabled(true);
         this->ui->progressBar->setEnabled(false);
-        this->ui->btnLoadDlcTrack->setEnabled(true);
         this->ui->cbAutoThresholds->setEnabled(!this->ui->lb_DlcFile->text().isEmpty());
-        this->ui->btnLoadDlcTrack->setEnabled(true);
+        this->ui->btnLoadDlcTrack->setEnabled(ui->cbDlcTrack->isChecked());
+        this->ui->cbDlcTrack->setEnabled(true);
     }
     catch(...)
     {
@@ -777,7 +776,8 @@ void MainGUI::on_btnLoadDlcTrack_clicked()
     if(!fileName.isEmpty()) {
         QFileInfo finf(fileName);
         QString ext = finf.suffix();  // ext = "csv"
-        bool loaded = ext == "csv" ? _dlcTrack.loadCSV(fileName.toStdString()) : _dlcTrack.loadHDF5(fileName.toStdString());
+        const cv::Rect  roi(0, 0, _workAreaSize.width, _workAreaSize.height);
+        bool loaded = ext == "csv" ? _dlcTrack.loadCSV(fileName.toStdString(), roi) : _dlcTrack.loadHDF5(fileName.toStdString(), roi);
         if(!loaded) {
             ui->cbAutoThresholds->setChecked(false);
             ui->cbAutoThresholds->setEnabled(false);

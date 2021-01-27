@@ -34,6 +34,10 @@
 #include <array>
 #include <algorithm>
 #include <unordered_set>
+#if defined(DEBUG) || defined(_DEBUG)
+#include <thread>  // Required to wait for the window popup to show additional informaiton on crash
+#include <chrono>
+#endif  // DEBUG
 #include "Preprocessor.hpp"
 
 using namespace cv;
@@ -365,7 +369,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //        showCvWnd("2.2.ProbFgClaheCl", maskProbFgx, cvWnds);
             //}
 
-            const unsigned  probFgxArea = cv::countNonZero(maskProbFgx);
+            const unsigned  probFgxArea = min(cv::countNonZero(maskProbFgx), cv::countNonZero(maskProbBg));
             if(probFgxArea > opClaheIters * opClaheIters && probFgxArea < maskProbFgx.rows * maskProbFgx.cols - opClaheIters * opClaheIters) {
                 maskRoi.setTo(cv::GC_PR_FGD, maskProbFgx);  // GC_PR_FGD, GC_FGD
                 if(extraVis)
@@ -477,11 +481,16 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
                     if(extraVis)
                          showGrabCutMask(maskRoi, "4.1.GcMask0", cvWnds);
-                    //try {
+                    try {
                         cv::grabCut(imgClr, maskRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
-                    //} catch(cv::Exception& err) {
-                    //    printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
-                    //}
+                    } catch(cv::Exception& err) {
+                        printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
+#if defined(DEBUG) || defined(_DEBUG)
+                        showGrabCutMask(maskRoi, "4.1.GcMask0", cvWnds);
+                        std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
+#endif  // DEBUG
+                        throw;
+                    }
 
                     //if(extraVis)
                     //     showGrabCutMask(maskRoi, "4.2.GcMaskRes", cvWnds);
@@ -558,7 +567,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
                     }
                 }
-            } else printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
+            } else {
+                printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
+                imgFgOut = img;
+            }
         }
 
         // Evaluate brightness

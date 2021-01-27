@@ -74,8 +74,18 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
 //! \param mp  - parameters for the larvae matching
 unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint=0);
 
+//! \brief Get ROI rect for the specified larvae
+//! \param larvae  - input larvae contours
+//! \param area  - size of the input area
+//! \param span  - span to the rect borders from the larvae
+//! \param larvaHulls  - optional output larvae hulls
+//! \return ROI rect, containing the larvae
+cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span=0, vector<Larva::Points>* larvaHulls=nullptr);
+
+//! \brief The Tracker class
 class Tracker {
-    constexpr static  unsigned  _larvaPtCols = 3;  //!< The number of columns (fields) in each larva point
+    constexpr static unsigned  _larvaPtCols = 3;  //!< The number of columns (fields) in each larva point
+    const static cv::Rect  DFL_ROI;
     const MatchParams  _matchParams;
     MatchStat   _matchStat;
     //! Tracking frames that include trajectories; ordered as by the larvae centers OpenCV contours
@@ -86,9 +96,10 @@ protected:
     //! \brief Load filtered larvae trajectories from the raw values
     //! \param rawVals  - raw values in the form (x, y, likelihood) * larvae_points * nlarvae
     //! \param nlarvae  - the number of larvae
+    //! \param roi  - working area (region of interest) to fileter out irrelevalnt points
     //! \param confmin  - minimal confidance of coordinates to be accepted
     //! \return whether the trajectories loaded successfully
-    bool loadTrajects(const cv::Mat& rawVals, unsigned nlarvae, float confmin=0.01);  // 0.5; Note: some significant points may have likelyhood = 0.01 in DLC
+    bool loadTrajects(const cv::Mat& rawVals, unsigned nlarvae, const cv::Rect& roi, float confmin=0.01);  // 0.5; Note: some significant points may have likelyhood = 0.01 in DLC
 public:
     const char* wndFgName;  //!< Window name to display foreground ROI
     bool active;  //!< Whether the stored data should be used or omitted by the external client
@@ -102,15 +113,18 @@ public:
 
     //! \brief Load larvae trajectories
     //! \param filename  - hdf5 file name, containing larvae trajectories
+    //! \param roi  - working area (region of interest) to fileter out irrelevalnt points
     //! \return Whether the file is loaded successfully
-    bool loadHDF5(const string& filename);
+    bool loadHDF5(const string& filename, const cv::Rect& roi=DFL_ROI);
 
     //! \brief Load larvae trajectories
     //! \param filename  - csv file name, containing larvae trajectories
+    //! \param roi  - working area (region of interest) to fileter out irrelevalnt points
     //! \return Whether the file is loaded successfully
-    bool loadCSV(const string& filename);
+    bool loadCSV(const string& filename, const cv::Rect& roi=DFL_ROI);
 
     //! \brief Filter out larvae points out of the ROI
+    //! \note Filtered out points do not change already evaluated statistics of larva trajectories
     //! This filtering is required if the input points may be located out of the actual processing frames (which happens in DLC estimations)
     //! \param roi  - target region of interest (typically, this is {0, 0, frame_width, frame_height})
     void filter(const cv::Rect& roi);
