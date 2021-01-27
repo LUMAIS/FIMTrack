@@ -371,7 +371,8 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect&
         printf("WARNING %s> filtered out: %u larvae, including %u invalid points\n", __FUNCTION__
             , nfolvs, nfopts);
 
-    printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f\n", __FUNCTION__, larvaCols, lvPtsMin, _trajects.size(), confmin);
+    printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f, roi: (%d, %d, %d, %d)\n", __FUNCTION__
+           , larvaCols, lvPtsMin, _trajects.size(), confmin, roi.x, roi.y, roi.width, roi.height);
     if(!_trajects.empty()) {
         unsigned  iframe = 0;
         for(const auto& tr: _trajects) {
