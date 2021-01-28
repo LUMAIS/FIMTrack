@@ -830,7 +830,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 } else nofg = true;
             } else nofg = true;
             if(nofg) {
-                printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
+                printf("WARNING %s> the pure foreground or background is empty\n", __FUNCTION__);
                 imgFgOut = img;
 //#if defined(DEBUG) || defined(_DEBUG)
 //                showGrabCutMask("maskCompound", maskTmp, cvWnds);
