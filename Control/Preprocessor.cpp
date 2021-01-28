@@ -205,6 +205,18 @@ void updateConditional2(const Mat& src, Mat& upd, uint8_t clrSrc, uint8_t clrUpd
     }
 }
 
+unsigned countMaskPix(const Mat& img, uint8_t clr, unsigned lim=-1)
+{
+    unsigned num = 0;
+    for(int y = 0; y < img.rows; ++y) {
+        const uint8_t* pix = img.ptr<uint8_t>(y);  // Note: other type for non CV_8UC1
+        for(int x = 0; x < img.cols && num < lim; ++x, ++pix)
+            if(*pix == clr)  // Note: typically, uval matches less frequently than sval
+                ++num;
+    }
+    return num;
+}
+
 void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Mat& imgFgOut,
                                       const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat,
                                       bool smooth, const char* wndName, bool extraVis)
@@ -318,8 +330,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
             const unsigned  probFgBgArea = min(cv::countNonZero(maskFg), cv::countNonZero(maskBg));
             const unsigned  opClaheIters = 1 + round(matchStat.distAvg / 20.f);  // Operation iterations; ~= 2 for vid_!; 24 -> 12 for FG; 16 -> 8  // 12..16 for probable foreground; 6 .. 8 for the foreground
+            //constexpr  unsigned LARVA_TRUAREA_HARDMIN = 4*4;
             bool nofg = false;  // The true foreground is not available
-            if(probFgBgArea > opClaheIters * opClaheIters && probFgBgArea < maskFg.rows * maskFg.cols - opClaheIters * opClaheIters) {
+            if(probFgBgArea >= 4*4) {  // Half x Half CLAHE clip limit
                 if(DEV_MODE >= 2 && extraVis) {
                     composeMask(maskFg, maskBg, maskRoi);
                     showGrabCutMask("1.3.MaskOrigROI", maskRoi, cvWnds);
@@ -609,33 +622,22 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
 
                 // Apply GrabCut to segment larva foreground vs background using hints
-#if defined(DEBUG) || defined(_DEBUG)
-                // Ensure that foreground is not empty
-                maskTmp.setTo(0);
-                updateConditional2(maskClaheRoi, maskTmp, cv::GC_FGD, 0, 0xFF);
-                unsigned  probFgBgArea = cv::countNonZero(maskTmp);
-                if(probFgBgArea >= opClaheIters * opClaheIters) {
-                    maskTmp.setTo(0);
-                    updateConditional2(maskClaheRoi, maskTmp, cv::GC_BGD, 0, 0xFF);
-                    probFgBgArea = cv::countNonZero(maskTmp);
-                }
-                if(probFgBgArea > opClaheIters * opClaheIters && probFgBgArea < maskTmp.rows * maskTmp.cols - opClaheIters * opClaheIters)
-#endif  // DEBUG
-                {
+                // ATTENTION: ensure that foreground and backgroun are not empty, otherwies GrabCut yields an exception
+                if(countMaskPix(maskClaheRoi, cv::GC_FGD, 1) && countMaskPix(maskClaheRoi, cv::GC_BGD, 1)) {
                     Mat bgdModel, fgdModel;
                     Mat imgClr;
                     cv::cvtColor(imgRoi, imgClr, cv::COLOR_GRAY2BGR);  // CV_8UC3; imgCorr
 
-                    try {
-                        cv::grabCut(imgClr, maskClaheRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
-                    } catch(cv::Exception& err) {
-                        printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
-//#if defined(DEBUG) || defined(_DEBUG)
-//                        showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
-//                        std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
-//#endif  // DEBUG
-                        throw;
-                    }
+                    //try {
+                    cv::grabCut(imgClr, maskClaheRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
+                    //} catch(cv::Exception& err) {
+                    //    printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
+//#if defined(DEBUG)// || defined(_DEBUG)
+//                  //      showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
+//                  //      std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
+//#endif  // DEBUG  //
+                    //    throw;
+                    //}
                     if(DEV_MODE >= 3 && extraVis)
                          showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
 
@@ -787,7 +789,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //                    if(extraVis)
 //                        showCvWnd("10.2.MclRfnMopnProbFgRoi", maskClaheAth, cvWnds);
 
-                    // Refine maskClaheRoi from ProbFg to ProbBG [/FG] based on maskClaheAthXXX
+                    // Refine maskClaheRoi from ProbFg to ProbBg [/FG] based on maskClaheAthXXX
                     //updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
                     updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);
                     updateConditional2(maskAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
@@ -795,7 +797,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                          showGrabCutMask("11.RfnPreGcMask", maskClaheRoi, cvWnds);
 
                     // Refine the segmentation using the updated mask
-                    cv::grabCut(imgClr, maskClaheRoi, fgrect, bgdModel, fgdModel, 3, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT | ; or cv::GC_EVAL
+                    // Note: pure (true) foreground and background has not been changed from the previous GRabCut call, so their validation is not requried
+                    cv::grabCut(imgClr, maskClaheRoi, fgrect, bgdModel, fgdModel, 1, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT | ; or cv::GC_EVAL
                     if(DEV_MODE >= 1 && extraVis)
                          showGrabCutMask("12.ResGcMask", maskClaheRoi, cvWnds);
 
@@ -835,10 +838,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //bitwise_not(mask, mask);  // Invert the mask
                         //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
                     }
-                }
-#if defined(DEBUG) || defined(_DEBUG)
-                else nofg = true;
-#endif  // DEBUG
+                } else nofg = true;
             } else nofg = true;
             if(nofg) {
                 printf("WARNING %s> the foreground (or background) is empty\n", __FUNCTION__);
