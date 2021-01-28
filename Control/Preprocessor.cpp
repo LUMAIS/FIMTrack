@@ -148,7 +148,9 @@ void showCvWnd(const String& wname, InputArray mat, unordered_set<String>& cvWnd
         cvWnds.insert(wname);  // A new window is being created
         printf("%s> %s, cvWnds: %lu\n", __FUNCTION__, wname.c_str(), cvWnds.size());
     }
-    cv::imshow(wname, mat);
+    if(!mat.empty())
+        cv::imshow(wname, mat);
+    else cv::imshow(wname, cv::Mat(cv::Size(0xFF, 1), CV_8UC1, Scalar(0)));
 }
 
 void showGrabCutMask(const char* imgName, const Mat& mask, unordered_set<String>& cvWnds) {
@@ -328,11 +330,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             //    showCvWnd("1.2.ProbBg", maskBg, cvWnds);
             //}
 
-            const unsigned  probFgBgArea = min(cv::countNonZero(maskFg), cv::countNonZero(maskBg));
             const unsigned  opClaheIters = 1 + round(matchStat.distAvg / 20.f);  // Operation iterations; ~= 2 for vid_!; 24 -> 12 for FG; 16 -> 8  // 12..16 for probable foreground; 6 .. 8 for the foreground
-            //constexpr  unsigned LARVA_TRUAREA_HARDMIN = 4*4;
+            constexpr  unsigned LARVA_TRUAREA_HARDMIN = 4*4;  // Half x Half CLAHE clip limit
             bool nofg = false;  // The true foreground is not available
-            if(probFgBgArea >= 4*4) {  // Half x Half CLAHE clip limit
+            if(countMaskPix(maskFg, 0xFF, LARVA_TRUAREA_HARDMIN) >= LARVA_TRUAREA_HARDMIN
+            && countMaskPix(maskBg, 0xFF, LARVA_TRUAREA_HARDMIN) >= LARVA_TRUAREA_HARDMIN) {  // Half x Half CLAHE clip limit
                 if(DEV_MODE >= 2 && extraVis) {
                     composeMask(maskFg, maskBg, maskRoi);
                     showGrabCutMask("1.3.MaskOrigROI", maskRoi, cvWnds);
