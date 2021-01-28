@@ -142,11 +142,17 @@ void Preprocessor::borderRestriction(contours_t &contours, const Mat& img, bool 
 }
 
 void showCvWnd(const String& wname, InputArray mat, unordered_set<String>& cvWnds) {
+    //if(mat.empty()) {
+    //    printf("WARNING %s> discarding an attempt to show an empty window %s, cvWnds: %lu\n", __FUNCTION__, wname.c_str(), cvWnds.size());
+    //    return;
+    //}
     if(!cvWnds.count(wname)) {
         cvWnds.insert(wname);  // A new window is being created
         printf("%s> %s, cvWnds: %lu\n", __FUNCTION__, wname.c_str(), cvWnds.size());
     }
-    cv::imshow(wname, mat);
+    if(!mat.empty())
+        cv::imshow(wname, mat);
+    else cv::imshow(wname, cv::Mat(cv::Size(0xFF, 1), CV_8UC1, Scalar(0)));
 }
 
 void showGrabCutMask(const Mat& mask, const char* imgName, unordered_set<String>& cvWnds) {
@@ -185,7 +191,7 @@ void clearCvWnds(const char* wndName, unordered_set<String>& cvWnds)
 
 void resetCvWnds(const char* wndName, unordered_set<String>& cvWnds)
 {
-    if(cvWnds.size() <= 1)
+    if(cvWnds.empty())
         return;
     cv::destroyAllWindows();  // Destroy OpenCV windows
     cvWnds.clear();
