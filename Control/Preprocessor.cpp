@@ -827,17 +827,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     }
 
                     //cv::findContours(imgRoiFg, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
-
-                    if(wndName) {
-                        Mat imgFgVis;  // Visualizing foreground image
-                        imgFgOut.copyTo(imgFgVis);
-                        cv::rectangle(imgFgVis, fgrect, cv::Scalar(CLR_FG), 1);
-                        cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
-                        showCvWnd(wndName, imgFgVis, cvWnds);
-                        //// Set image to black outside the mask
-                        //bitwise_not(mask, mask);  // Invert the mask
-                        //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
-                    }
                 } else nofg = true;
             } else nofg = true;
             if(nofg) {
@@ -849,6 +838,17 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //                throw std::logic_error("Debug Exception");
 //#endif  // DEBUG
             } else assert(!imgRoiFg.empty() && "Unexpeted imgFgOut content");
+
+            if(wndName) {
+                Mat imgFgVis;  // Visualizing foreground image
+                imgFgOut.copyTo(imgFgVis);
+                cv::rectangle(imgFgVis, fgrect, cv::Scalar(CLR_FG), 1);
+                cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
+                showCvWnd(wndName, imgFgVis, cvWnds);
+                //// Set image to black outside the mask
+                //bitwise_not(mask, mask);  // Invert the mask
+                //img.setTo(0, mask);  // Zeroize image by mask (outside the ROI)
+            }
         }
 
         // Evaluate brightness
