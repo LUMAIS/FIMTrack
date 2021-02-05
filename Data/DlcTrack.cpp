@@ -27,6 +27,7 @@
 //using std::endl;
 //using namespace dlc;
 using cv::Mat;
+using cv::Rect;
 using cv::norm;
 using namespace H5;
 
@@ -74,9 +75,9 @@ bool importVideo(const string& vidName, const string& outpDir, const string& fra
 //    return cmpPoint(larva.center, center);
 //}
 
-const cv::Rect Tracker::DFL_ROI = cv::Rect(0, 0, USHRT_MAX, USHRT_MAX);
+const Rect Tracker::DFL_ROI = Rect(0, 0, USHRT_MAX, USHRT_MAX);
 
-bool Tracker::loadHDF5(const string& filename, const cv::Rect& roi)
+bool Tracker::loadHDF5(const string& filename, const Rect& roi)
 {
     struct DataPoint {
         int64_t frame;
@@ -160,7 +161,7 @@ bool Tracker::loadHDF5(const string& filename, const cv::Rect& roi)
 //    return loadTrajects(lsvs, nlvs);
 }
 
-bool Tracker::loadCSV(const string& filename, const cv::Rect& roi)
+bool Tracker::loadCSV(const string& filename, const Rect& roi)
 {
     std::ifstream finp(filename);
     if(!finp.is_open()) {
@@ -281,7 +282,7 @@ bool Tracker::loadCSV(const string& filename, const cv::Rect& roi)
 //    }
 //}
 
-bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect& roi, float confmin)
+bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const Rect& roi, float confmin)
 {
     if(rawVals.empty() || rawVals.cols % (nlarvae * _larvaPtCols)) {  // nlarvae * (x, y, likelihood)
         fprintf(stderr, "ERROR %s> Invalid size of rawVals\n", __FUNCTION__);
@@ -393,7 +394,7 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const cv::Rect&
     return true;
 }
 
-void Tracker::filter(const cv::Rect& roi)
+void Tracker::filter(const Rect& roi)
 {
     if(roi.width <= 0 || roi.height <= 0)
         return;
@@ -450,18 +451,11 @@ cv::Point toPoint(const cv::Scalar& sv)
     return Point(round(sv[0]), round(sv[1]));
 }
 
-unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
-{
-    cv::Scalar mean, stddev;
-    cv::meanStdDev(contour, mean, stddev);
-    return matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp);
-}
-
-cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span, vector<Larva::Points>* larvaHulls)
+Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span, vector<Larva::Points>* larvaHulls)
 {
     // Identify an approximate foregroud ROI
     // Note: initially, store top-left and bottom-right points in the rect, and ther change the latter to height-width
-    cv::Rect  fgrect = {area.width, area.height, 0, 0};
+    Rect  fgrect = {area.width, area.height, 0, 0};
 
     // Identify the foreground ROI as an approximaiton (convexHull) of the DLC-tracked larva contours
     Larva::Points  hull;
@@ -520,16 +514,54 @@ cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span, vect
     return fgrect;
 }
 
-unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
+unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
+{
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(contour, mean, stddev);
+    auto larva = matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp, idHint);
+    // Ensure that more than a half of DLC contour is covered with the matching contour
+    if(larva) {
+        // Identify the ROI that covers both contours
+        Larva::Points  pts(contour);
+        pts.insert(pts.end(), larva->points.begin(), larva->points.end());
+        const Rect  roi = cv::boundingRect(pts);
+
+        Mat  maskLarv = Mat::zeros(roi.size(), CV_8UC1);
+        cv::drawContours(maskLarv, vector<dlc::Larva::Points>(1, larva->points), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+        // Evaluate area of the DLC contour
+        const float areaLarv = cv::contourArea(larva->points);  // cv::countNonZero(maskLarv);
+        // Use preliminary soft validation of the size of the matched contour
+        const float areaCont = cv::contourArea(contour); // cv::countNonZero(maskCont);  // cv::arcLength(contour, true)
+        if(areaCont < 4 * areaLarv && areaLarv < 4 * areaCont) { // 3 .. 4
+            // Intersect with the target contour
+            Mat  maskCont = Mat::zeros(roi.size(), CV_8UC1);
+            cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+            cv::bitwise_and(maskLarv, maskCont, maskCont);
+            const auto areaOvp = cv::countNonZero(maskCont);
+            // Filter-out the match if the (DLC) larva is covered up to a half by the contour
+            if(areaLarv >= 2 * areaOvp) {
+               printf("WARNING %s> candidate #%u is omitted. areaLarv / areaOvp: %f \n", __FUNCTION__, larva->id, areaLarv / areaOvp);
+               larva = nullptr;
+            }
+        } else {
+            printf("WARNING %s> candidate #%u is omitted. areaLarv / areaCont: %f \n", __FUNCTION__, larva->id, areaLarv / areaCont);
+            larva = nullptr;
+        }
+
+    }
+    return larva ? larva->id : 0;
+}
+
+const Larva* matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
 {
     if(larvae.empty()) {
         //printf("%s> empty\n", __FUNCTION__);
-        return 0;
+        return nullptr;
     }
     const Larva  *res = nullptr;  // Closest larva
     double  dmin = std::numeric_limits<double>::max();
     // 1..3 * stddev
-    const double  dmax = mp.rLarvaStdMax * norm(stddev);  // Maximal allowed distance beween the centers
+    const double  dmax = mp.rLarvaStdMax * norm(stddev);  // Maximal allowed distance beween the centers; Note: rLarvaStdMax = 1.5 is the default value
     if(idHint && idHint <= larvae.size() && norm(larvae[idHint - 1].center - center) <= dmax) {
         res = &larvae[idHint - 1];
     } else {
@@ -543,13 +575,13 @@ unsigned matchedLarva(const Point& center, const Point& stddev, const Larvae& la
             }
         }
         if(dmin > dmax) {
-            printf("WARNING %s> candidate #%u is omitted: dmin = %f > dmax = %f\n", __FUNCTION__, res->id, dmin, dmax);
+            printf("WARNING %s> candidate #%u is omitted: dmin = %f > dmax = %f\n", __FUNCTION__, res ? res->id : 0, dmin, dmax);
             return 0;
         }
     }
 
     //printf("%s> %u\n", __FUNCTION__, res->id);
-    return res->id;
+    return res;
 }
 
 } // dlc
