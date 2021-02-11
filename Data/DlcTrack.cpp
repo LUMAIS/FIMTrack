@@ -514,25 +514,31 @@ Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span, vector<L
     return fgrect;
 }
 
-unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
+unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp, unsigned idHint, bool visInsp)
 {
     cv::Scalar mean, stddev;
     cv::meanStdDev(contour, mean, stddev);
-    auto larva = matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp, idHint);
+    auto larva = matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp, idHint, visInsp);
     // Ensure that more than a half of DLC contour is covered with the matching contour
     if(larva) {
-        // Identify the ROI that covers both contours
-        Larva::Points  pts(contour);
-        pts.insert(pts.end(), larva->points.begin(), larva->points.end());
-        const Rect  roi = cv::boundingRect(pts);
-
-        Mat  maskLarv = Mat::zeros(roi.size(), CV_8UC1);
-        cv::drawContours(maskLarv, vector<dlc::Larva::Points>(1, larva->points), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
         // Evaluate area of the DLC contour
-        const float areaLarv = cv::contourArea(larva->points);  // cv::countNonZero(maskLarv);
+        // ATTENTION: take convex hull from the larva points because they contain points inside the larva and those points are not ordered.
+        // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
+        Larva::Points  larvaHull;
+        larvaHull.reserve(larva->points.size());
+        cv::convexHull(larva->points, larvaHull);
+        const float areaLarv = cv::contourArea(larvaHull);  // cv::countNonZero(maskLarv);
         // Use preliminary soft validation of the size of the matched contour
         const float areaCont = cv::contourArea(contour); // cv::countNonZero(maskCont);  // cv::arcLength(contour, true)
-        if(areaCont < 4 * areaLarv && areaLarv < 4 * areaCont) { // 3 .. 4
+        constexpr float  rLarvContMax = 1.8;  // 1.5 .. 2.2
+        if(areaCont < rLarvContMax * areaLarv && areaLarv < rLarvContMax * areaCont) { // 3 .. 5
+            // Identify the ROI that covers both contours
+            Larva::Points  pts(contour);
+            pts.insert(pts.end(), larvaHull.begin(), larvaHull.end());
+            const Rect  roi = cv::boundingRect(pts);
+
+            Mat  maskLarv = Mat::zeros(roi.size(), CV_8UC1);
+            cv::drawContours(maskLarv, vector<dlc::Larva::Points>(1, larvaHull), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
             // Intersect with the target contour
             Mat  maskCont = Mat::zeros(roi.size(), CV_8UC1);
             cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
@@ -541,10 +547,31 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
             // Filter-out the match if the (DLC) larva is covered up to a half by the contour
             if(areaLarv >= 2 * areaOvp) {
                printf("WARNING %s> candidate #%u is omitted. areaLarv / areaOvp: %f \n", __FUNCTION__, larva->id, areaLarv / areaOvp);
+               if(visInsp) {
+                   cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xAA, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+                   cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, larvaHull), 0, 0x44, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+                   cv::imshow("matchedLarva> Overlapping contours matching of the omitted candidate", maskCont);
+               }
                larva = nullptr;
             }
         } else {
             printf("WARNING %s> candidate #%u is omitted. areaLarv / areaCont: %f \n", __FUNCTION__, larva->id, areaLarv / areaCont);
+            if(visInsp) {
+                // Identify the ROI that covers both contours
+                Larva::Points  pts(contour);
+                pts.insert(pts.end(), larvaHull.begin(), larvaHull.end());
+                const Rect  roi = cv::boundingRect(pts);
+
+                Mat  maskLarv = Mat::zeros(roi.size(), CV_8UC1);
+                cv::drawContours(maskLarv, vector<dlc::Larva::Points>(1, larvaHull), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+                cv::imshow("matchedLarva> Larva DLC", maskLarv);
+                Mat  maskCont = Mat::zeros(roi.size(), CV_8UC1);
+                cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+                cv::bitwise_and(maskLarv, maskCont, maskCont);
+                cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xAA, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+                cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, larvaHull), 0, 0x44, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
+                cv::imshow("matchedLarva> Contours matching of the omitted candidate", maskCont);
+            }
             larva = nullptr;
         }
 
@@ -552,7 +579,7 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
     return larva ? larva->id : 0;
 }
 
-const Larva* matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint)
+const Larva* matchedLarva(const Point& center, const Point& stddev, const Larvae& larvae, const MatchParams& mp, unsigned idHint, bool visInsp)
 {
     if(larvae.empty()) {
         //printf("%s> empty\n", __FUNCTION__);

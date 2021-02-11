@@ -142,9 +142,10 @@ namespace Calc
      * @param dlcLarvae  - DLC tacking larvae, containing contours
      * @param mp  - parameters for the larvae matching
      * @param idHint  - hinted id for the fast matching, 0 means disabled
+     * @param visInsp  - visual inspection of results. ATTENTION: It should not be used in the tracking mode because OpenCV windows have issues being useing in (QT) multithreading
      * @return id of the DLC-tracked larva or 0 if current conrour does not correspond to any DLC-tracked one
      */
-    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp, unsigned idHint=0);
+    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp, unsigned idHint=0, bool visInsp=false);
 
     /**
     * @brief calcPoligonArea

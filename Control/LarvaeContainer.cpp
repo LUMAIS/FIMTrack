@@ -1360,9 +1360,10 @@ void LarvaeContainer::updateLarvaValues(TrackerSceneLarva const* tLarva)
     size_t larvaIndex;
     
     if(this->getIndexOfLarva(tLarva->getBaseID(), larvaIndex))
-    {      
+    {
         this->updateLarvaSpine(                 larvaIndex,         time,   tLarva->getSpine(), tLarva->getSpineRadii());
         this->updateLarvaMomentum(              larvaIndex,         time,   tLarva->getPoligon());
+        this->updateLarvaIdDlc(                 larvaIndex,         time,   tLarva->getPoligon());
         this->updateLarvaArea(                  larvaIndex,         time,   tLarva->getPoligon());
         this->updateLarvaBrightness(            larvaIndex,         time,   tLarva->getPoligon(), tLarva->getImg());
         this->updateLarvaPerimeter(             larvaIndex,         time,   tLarva->getPoligon());
@@ -1440,7 +1441,7 @@ void LarvaeContainer::updateLarvaIdDlc(const int index,
 {
     unsigned idDlc = this->dlcTrack.active && time < this->dlcTrack.size()
                      ? Calc::calcIdDlc(paintPolygon, this->dlcTrack.larvae(time), this->dlcTrack.matchParams()
-                        , time ? this->mLarvae[index].parameters[time - 1].idDlc : 0)
+                        , time ? this->mLarvae[index].parameters[time - 1].idDlc : 0, true)
                      : 0;
     this->mLarvae[index].parameters[time].idDlc    = idDlc;
 }

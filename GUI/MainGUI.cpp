@@ -282,7 +282,7 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         // draw the larvae DLC id, contour (area) size and brightness into the image
         std::stringstream ss;
         if(_dlcTrack.active && timePoint < _dlcTrack.size()) {
-            const unsigned  idDlc = dlc::matchedLarva(rawLarva.getContour(), _dlcTrack.larvae(timePoint), _dlcTrack.matchParams());
+            const unsigned  idDlc = dlc::matchedLarva(rawLarva.getContour(), _dlcTrack.larvae(timePoint), _dlcTrack.matchParams(), 0, true);
             // Consider only actual id >= 1
             if(idDlc)
                 ss << 'i' << idDlc << ',';

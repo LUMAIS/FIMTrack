@@ -239,14 +239,14 @@ namespace Calc
         return ((angle * M_PI) / 180.0);
     }
 
-    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp, unsigned idHint)
+    unsigned calcIdDlc(QPolygonF const& polygon, const dlc::Larvae& dlcLarvae, const dlc::MatchParams& mp, unsigned idHint, bool visInsp)
     {
         dlc::Larva::Points  pol;
         pol.reserve(polygon.size());
 
         for(const auto& qpt: polygon)
             pol.emplace_back(qpt.x(), qpt.y());
-        return dlc::matchedLarva(pol, dlcLarvae, mp);
+        return dlc::matchedLarva(pol, dlcLarvae, mp, idHint, visInsp);
     }
 
     double calcPolygonArea(QPolygonF const& polygon)
