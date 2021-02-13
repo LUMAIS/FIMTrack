@@ -224,7 +224,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                                       const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat,
                                       bool smooth, const char* wndName, bool extraVis)
 {
-    constexpr uint8_t  DEV_MODE = 2;  // Show additional tracing in the dev mode: 1..127 (127 is the highest detalization); 2, 5, 10
+    constexpr uint8_t  DEV_MODE = 3;  // Show additional tracing in the dev mode: 1..127 (127 is the highest detalization); 2, 5, 10
     static unordered_set<String>  cvWnds;  // Names of the operating OpenCV windows
 
     if(larvae.empty()) {
@@ -366,7 +366,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::adaptiveThreshold(imgRoi, maskAth, 0xFF, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, blockSize, 1);  // 0 or 1;  ADAPTIVE_THRESH_MEAN_C;; 1 + matchStat.distAvg / 4.f; 2; NOTE: positive C=2 requires inverted thresholding to have black BG
                 // Refine maskAth, filtering out the background, reducing the noise
                 maskAth.setTo(0, maskBg);
-                if(DEV_MODE >= 10 && extraVis)
+                if(DEV_MODE >= 7 && extraVis)
                     showCvWnd("2.1.AthProbFgRoi", maskAth, cvWnds);
 
                 cv::erode(maskAth, maskAth, erdKern, Point(-1, -1), 1);  // 8 .. 12 .. 16; Scalar(cv::GC_PR_FGD); 1 or opClaheIters
@@ -416,19 +416,21 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 //// Refine the edges, removing inner elements and noise by substructing the eroded closed contours
                 //cv::findContours(edgesOrig, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                 //
-                //// Conver contours to convex hulls to fill the internal area
+                //// Convert contours to convex hulls to fill the internal area, otherwise there might not be any closed contours at all
                 //vector<contour_t>  hulls;
-                //hulls.reserve(contours.size());
+                //hulls.reserve(contours.size() / 2);
                 //contour_t  hull;
                 //for(const auto& cnt: contours) {
                 //    cv::convexHull(cnt, hull);
-                //	hulls.push_back(hull);
+                //    hulls.push_back(hull);
                 //}
                 //
-                //Mat maskEdges = Mat::zeros(edgesOrig.size(), edgesOrig.type());  // (edgesOrig.size(), edgesOrig.type(), Scalar(0))
-                //cv::drawContours(maskEdges, hulls, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
-                //if(DEV_MODE >= 10 && extraVis)
-                //  showCvWnd("3.2.FilledCntOrigRoi", maskEdges, cvWnds);
+                ////Mat maskEdges = Mat::zeros(edgesOrig.size(), edgesOrig.type());  // (edgesOrig.size(), edgesOrig.type(), Scalar(0))
+                //maskTmp.setTo(0);
+                //cv::drawContours(maskTmp, hulls, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+                ////cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
+                //if(DEV_MODE >= 3 && extraVis)
+                //  showCvWnd("3.2.FilledCntOrigRoi", maskTmp, cvWnds);
                 //cv::erode(maskEdges, maskEdges, erdKern, Point(-1, -1), 2);
                 //
 
@@ -791,8 +793,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                     // Refine maskClaheRoi from ProbFg to ProbBg [/FG] based on maskClaheAthXXX
                     //updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
-                    updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);
+                    updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);  // GC_PR_BGD
                     updateConditional2(maskAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
+
+                    // Erode maskClaheAth and refine maskClaheRoi
+                    cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
+                    updateConditional2(maskClaheAth, maskClaheRoi, 0xFF, cv::GC_PR_FGD, cv::GC_FGD);
+
                     if(DEV_MODE >= 2 && extraVis)
                          showGrabCutMask("11.RfnPreGcMask", maskClaheRoi, cvWnds);
 
