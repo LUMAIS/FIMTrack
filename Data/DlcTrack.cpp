@@ -378,57 +378,11 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const Rect& roi
                             if(i - hl.nframe <= histDistMax && hl.larva)
                                 tls.push_back(*hl.larva);
                         if(!tls.empty()) {
-                            lid = matchedLarva(lv.hull, tls, matchParams, 0, true);
-                            printf("%s> frame: %d, candidate larva for the id swapping correction: %u -> %u\n", __FUNCTION__
-                                , i, lv.id, lid);
-////#if defined(QT_DEBUG) || defined(_QT_DEBUG)
-//                        // Trace id swapping-related data
-//                        if(appeared) {
-//                            printf("%s> larva #%u, %lu missedIds, %lu pastLarvae\n", __FUNCTION__
-//                                , lv.id, missedIds.size(), pastLarvae.size());
-//                            printf("  missedIds: ");
-//                            for(auto mid: missedIds)
-//                                printf(" %u", mid);
-//                            puts("");  // Newline
-//                            printf("  prevLarvae: ");
-//                            for(const auto& ltr: _trajects.back())
-//                                printf(" %u", ltr.id);
-//                            puts("");  // Newline
-//                        }
-////#endif  // Detailed Tracing
+                            lid = matchedLarva(lv.hull, tls, matchParams);  // , 0, true
+                            //printf("%s> frame: %d, candidate larva for the id swapping correction: %u -> %u\n", __FUNCTION__
+                            //    , i, lv.id, lid);
                         }
                     }
-
-                    //                    if(!missedIds.empty() && !_trajects.empty() && !_trajects.back().empty()) {
-                    //                        // Fetch larvae that are missed now and existed in the previous frame, and check whether the current larva existed.
-                    //                        pastLarvae.clear();
-                    //                        auto ipl = _trajects.back().cbegin();
-                    //                        for(auto mid: missedIds) {
-                    //                            while(ipl != _trajects.back().cend() && ipl->id < mid)
-                    //                                ++ipl;
-                    //                            if(ipl == _trajects.back().cend())
-                    //                                break;
-                    //                            if(ipl->id == mid)
-                    //                                pastLarvae.push_back(&*ipl++);
-                    //                        }
-                    //                        // Check whether the current larva was absent in the previous frame and appeared now
-                    //                        bool appeared = false;
-                    //                        while(ipl != _trajects.back().cend() && ipl->id < lv.id)
-                    //                            ++ipl;
-                    //                        if(ipl == _trajects.back().cend() || ipl->id != lv.id)
-                    //                            appeared = true;
-
-                    //                        // Ensure that id is not swapped for a larva the appearing larva
-                    //                        if(appeared && pastLarvae.size()) {
-                    //                            // Match with larvae that are missed but existed in the previous frame
-                    //                            Larvae  tls;
-                    //                            tls.reserve(pastLarvae.size());
-                    //                            for(auto plv: pastLarvae)
-                    //                                tls.push_back(*plv);
-                    //                            lid = matchedLarva(lv.hull, tls, matchParams);
-                    //                            printf("%s> candidate larva for the id swapping correction: %u -> %u\n", __FUNCTION__, lv.id, lid);
-                    //                        }
-                    //                    }
 
                     // Note: lavra points validation is already performed
                     if(lid) {
@@ -619,15 +573,15 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
 //        }
 //    };
 
-//#if !(defined(QT_DEBUG) || defined(_QT_DEBUG))
-//    visInsp = false;  // Note: should be activated only for debugging to reduce cluttering
-//#endif  // Release Build
+#if !(defined(QT_DEBUG) || defined(_QT_DEBUG))
+    visInsp = false;  // Note: should be activated only for debugging to reduce cluttering
+#endif  // Release Build
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(contour, mean, stddev);
     auto larva = matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp, idHint, visInsp);
-    if(larva)
-        printf("WARNING %s> candidate #%u\n", __FUNCTION__, larva->id);
+    //if(larva)
+    //    printf("%s> candidate #%u\n", __FUNCTION__, larva->id);
     // Ensure that more than a half of DLC contour is covered with the matching contour
     if(larva) {
         // Evaluate area of the DLC contour
