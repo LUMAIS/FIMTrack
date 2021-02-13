@@ -180,7 +180,7 @@ bool Tracker::loadCSV(const string& filename, const Rect& roi)
     size_t rowVals = 0;  // The number of values in each row
     unsigned nlvs = 0;  // The number of larvaes
     while(getline(finp, ln)) {
-        // Process SCV header
+        // Process CSV header
         if(nhdr) {
             if(nhdr == 3) {
                 // Get the number of distinct larvae
@@ -320,28 +320,18 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const Rect& roi
     distances.reserve(rawVals.rows * rawVals.cols / 2);  // Some raw larva are likely to be filtered out
     unsigned  nfopts = 0;  // The number of filtered out points of larva contours (invalid coordinates only, excluding the dependent points)
     unsigned  nfolvs = 0;  // The number of filtered out larvae
+    vector<Larva::Id>  missedIds;  // Ids of the larave in a row
+    vector<const Larva*>  pastLarvae;  // Larvae that was present on previous frame and missed on the current one
+    const MatchParams  matchParams{1.5, 0.4};  // Defult matching parameters
 
     _trajects.reserve(rawVals.rows);
     for(int i = 0; i < rawVals.rows; ++i) {
         Larvae  larvae;
         const ValT* rvRow = rawVals.ptr<ValT>(i);
         Larva::Id  uid = 0;
-        for(int j = 0; j < rawVals.cols; j += _larvaPtCols) {
+        missedIds.clear();
+        for(int j = 0; j < rawVals.cols;) {
             // Look-ahead reading of larva
-            if(j % larvaCols == 0) {
-                // ATTENTION: ids are assigned to the original larvae even if they are empty and omitted, otherwise ids would be invalid
-                lv.id = ++uid;  // Note: ids should start from 1, 0 indicates non-tracable larva
-                if(lv.points.size() >= lvPtsMin) {
-                   lv.center = toPoint(cv::mean(lv.points));
-                   // Note: lavra points validation is already performed
-                   larvae.push_back(lv);
-
-                   // Store distances from the center
-                   for(const auto& pt: lv.points)
-                       distances.push_back(norm(lv.center - pt));
-                } else ++nfolvs;
-                lv.clear();
-            }
             // Each 3rd value is likelihood
             const auto lkh = rvRow[j+2];
             // Note: DLC sometimes estimate point coordinates out of the processing view,
@@ -354,13 +344,87 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const Rect& roi
             // Validate larva points
             // Note: sometimes x or y is NaN for valid likelihood (e.g., vid_2 #4[0])
             if(lkh < confmin || std::isnan(lkh) || std::isnan(x) || std::isnan(y)
-            || x < roi.x || x >= roi.x + roi.width || y < roi.y || y >= roi.y + roi.height) {
+            || x < roi.x || x >= roi.x + roi.width || y < roi.y || y >= roi.y + roi.height)
                 ++nfopts;
-                continue;
+            else lv.points.emplace_back(round(x), round(y));
+            j += _larvaPtCols;
+
+            // Insert a larva to the container when all its points are handled
+            if(j % larvaCols == 0) {
+                // ATTENTION: ids are assigned to the original larvae even if they are empty and omitted, otherwise ids would be invalid
+                lv.id = ++uid;  // Note: ids should start from 1, 0 indicates non-tracable larva
+                if(lv.points.size() >= lvPtsMin) {
+                    lv.center = toPoint(cv::mean(lv.points));
+                    // Ensure that ids are not swapped when the current larva is absent in the previous frame and at least one larva is missed.
+                    Larva::Id  lid = 0;  // Recovered larva id, 0 means none
+                    if(!missedIds.empty() && !_trajects.empty() && !_trajects.back().empty()) {
+                        // Fetch larvae that are missed now and existed in the previous frame, and check whether the current larva existed.
+                        pastLarvae.clear();
+                        auto ipl = _trajects.back().cbegin();
+                        for(auto mid: missedIds) {
+                            while(ipl != _trajects.back().cend() && ipl->id < mid)
+                                ++ipl;
+                            if(ipl == _trajects.back().cend())
+                                break;
+                            if(ipl->id == mid)
+                                pastLarvae.push_back(&*ipl++);
+                        }
+                        // Check whether the current larva was present in the previous frame and appeared now
+                        bool appeared = false;
+                        while(ipl != _trajects.back().cend() && ipl->id < lv.id)
+                            ++ipl;
+                        if(ipl == _trajects.back().cend() || ipl->id != lv.id)
+                            appeared = true;
+
+//#if defined(QT_DEBUG) || defined(_QT_DEBUG)
+                        // Trace id swapping-related data
+                        if(appeared) {
+                            printf("%s> larva #%u, %lu missedIds, %lu pastLarvae\n", __FUNCTION__
+                                , lv.id, missedIds.size(), pastLarvae.size());
+                            printf("  missedIds: ");
+                            for(auto mid: missedIds)
+                                printf(" %u", mid);
+                            puts("");  // Newline
+                            printf("  prevLarvae: ");
+                            for(const auto& ltr: _trajects.back())
+                                printf(" %u", ltr.id);
+                            puts("");  // Newline
+                        }
+//#endif  // Detailed Tracing
+                        // Ensure that id is not swapped for a larva the appearing larva
+                        if(appeared && pastLarvae.size()) {
+                            // Match with larvae that are missed but existed in the previous frame
+                            Larvae  tls;
+                            tls.reserve(pastLarvae.size());
+                            for(auto plv: pastLarvae)
+                                tls.push_back(*plv);
+                            lid = matchedLarva(lv.points, tls, matchParams);
+                            printf("%s> candidate larva for the id swapping correction: %u -> %u\n", __FUNCTION__, lv.id, lid);
+                        }
+                    }
+
+                    // Note: lavra points validation is already performed
+                    if(lid) {
+                        printf("WARNING %s> swapped larva id is corrected: %u -> %u\n", __FUNCTION__, lv.id, lid);
+                        lv.id = lid;
+                        // Insert the larva in a proper place
+                        auto ilv = larvae.begin();
+                        while(ilv != larvae.end() && ilv->id < lv.id)
+                            ++ilv;
+                        larvae.insert(ilv, lv);
+                    } else larvae.push_back(lv);
+
+                    // Store distances from the center
+                    for(const auto& pt: lv.points)
+                        distances.push_back(norm(lv.center - pt));
+                } else {
+                    ++nfolvs;
+                    missedIds.push_back(lv.id);
+                }
+                lv.clear();
             }
-            lv.points.emplace_back(round(x), round(y));
         }
-        _trajects.push_back(larvae);
+        _trajects.push_back(move(larvae));
     }
     assert(_trajects.size() == rawVals.rows && "Unexpected number of the loaded trajectories");
     if(!distances.empty()) {
@@ -371,13 +435,13 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const Rect& roi
     }
 
     if(nfopts || nfolvs)
-        printf("WARNING %s> filtered out on %d frames: %u larvae, including %u\n", __FUNCTION__
+        printf("WARNING %s> filtered out on %d frames: %u larvae, %u larva points\n", __FUNCTION__
             , rawVals.rows, nfolvs, nfopts);
 
     printf("%s> larvaCols: %u, lvPtsMin: %u, trajects: %lu, confmin: %f, roi: (%d, %d, %d, %d)\n", __FUNCTION__
            , larvaCols, lvPtsMin, _trajects.size(), confmin, roi.x, roi.y, roi.width, roi.height);
     if(!_trajects.empty()) {
-        unsigned  iframe = 0;
+        unsigned  iframe = 0;  // Frame index
         for(const auto& tr: _trajects) {
             ++iframe;
             if(tr.empty())
@@ -388,8 +452,7 @@ bool Tracker::loadTrajects(const Mat& rawVals, unsigned nlarvae, const Rect& roi
             break;
         }
         if(iframe >= _trajects.size())
-            printf("WARNING %s> trajectories are empty: no valid larvae exist\n", __FUNCTION__
-                , lv.id, lv.center.x, lv.center.y, _matchStat.distAvg, _matchStat.distStd);
+            printf("WARNING %s> trajectories are empty: no valid larvae exist\n", __FUNCTION__);
     }
     return true;
 }
@@ -516,6 +579,28 @@ Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span, vector<L
 
 unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const MatchParams& mp, unsigned idHint, bool visInsp)
 {
+//    static const auto  wnds = {"matchedLarva> OvpCnt_OmitCand", "matchedLarva> Cnt_OmitCand"};   // Inspection Windows
+//    static std::vector<bool>  wndActFlags(wnds.size(), false);
+//    static auto showCvWnd = [](const cv::String& wnd, const Mat& img) {
+//        auto iw = std::find(wnds.begin(), wnds.end(), wnd);
+//        if(iw != wnds.end()) {
+//            cv::imshow(wnd, img);
+//            wndActFlags[std::distance(wnds.begin(), iw)] = true;
+//        }
+//    };
+//    static auto safeDestroyCvWnd = [](const cv::String& wnd) {
+//        auto iw = std::find(wnds.begin(), wnds.end(), wnd);
+//        const unsigned  iwaf = std::distance(wnds.begin(), iw);
+//        if(iwaf < wnds.size() && wndActFlags[iwaf]) {
+//            cv::destroyWindow(wnd);
+//            wndActFlags[iwaf] = false;
+//        }
+//    };
+
+#if !(defined(QT_DEBUG) || defined(_QT_DEBUG))
+    visInsp = false;  // Note: should be activated only for debugging to reduce cluttering
+#endif  // Release Build
+
     cv::Scalar mean, stddev;
     cv::meanStdDev(contour, mean, stddev);
     auto larva = matchedLarva(toPoint(mean), toPoint(stddev), larvae, mp, idHint, visInsp);
@@ -545,12 +630,15 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
             cv::bitwise_and(maskLarv, maskCont, maskCont);
             const auto areaOvp = cv::countNonZero(maskCont);
             // Filter-out the match if the (DLC) larva is covered up to a half by the contour
-            if(areaLarv >= 2 * areaOvp) {
+            if(areaLarv >= 2.5 * areaOvp || areaLarv + areaCont >= 3 * areaOvp) {
                printf("WARNING %s> candidate #%u is omitted. areaLarv / areaOvp: %f \n", __FUNCTION__, larva->id, areaLarv / areaOvp);
                if(visInsp) {
                    cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xAA, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
                    cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, larvaHull), 0, 0x44, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
-                   cv::imshow("matchedLarva> Overlapping contours matching of the omitted candidate", maskCont);
+                   cv::imshow("matchedLarva> OvpCnt_OmitCand#" + std::to_string(larva->id), maskCont);
+                   //auto iwnd = wnds.begin();
+                   //showCvWnd(*iwnd, maskCont);
+                   //safeDestroyCvWnd(*++iwnd);
                }
                larva = nullptr;
             }
@@ -564,18 +652,23 @@ unsigned matchedLarva(const Larva::Points& contour, const Larvae& larvae, const 
 
                 Mat  maskLarv = Mat::zeros(roi.size(), CV_8UC1);
                 cv::drawContours(maskLarv, vector<dlc::Larva::Points>(1, larvaHull), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
-                cv::imshow("matchedLarva> Larva DLC", maskLarv);
+                //cv::imshow("matchedLarva> Larva DLC", maskLarv);
                 Mat  maskCont = Mat::zeros(roi.size(), CV_8UC1);
                 cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xFF, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
                 cv::bitwise_and(maskLarv, maskCont, maskCont);
                 cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, contour), 0, 0xAA, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
                 cv::drawContours(maskCont, vector<dlc::Larva::Points>(1, larvaHull), 0, 0x44, 1, cv::LINE_8, cv::noArray(), 0, Point(-roi.x, -roi.y));
-                cv::imshow("matchedLarva> Contours matching of the omitted candidate", maskCont);
+                cv::imshow("matchedLarva> Cnt_OmitCand#" + std::to_string(larva->id), maskCont);
+                //auto iwnd = wnds.begin();
+                //safeDestroyCvWnd(*iwnd);
+                //showCvWnd(*++iwnd, maskCont);
             }
             larva = nullptr;
         }
-
     }
+    //else for(auto wnd: wnds)
+    //    safeDestroyCvWnd(wnd);
+
     return larva ? larva->id : 0;
 }
 

@@ -47,6 +47,14 @@ struct Larva {
 using Larvae = vector<Larva>;
 using LarvaeTrajects = vector<Larvae>;
 
+//! Predicate for larva id matching
+class SameLarvaId {
+    const Larva::Id  id;
+public:
+    SameLarvaId(Larva::Id id) : id(id)  {}
+    bool operator()(const Larva& lv) const { return id == lv.id; }
+};
+
 Point toPoint(const cv::Scalar& sv);
 
 struct MatchParams {
@@ -94,7 +102,6 @@ class Tracker {
     MatchStat   _matchStat;
     //! Tracking frames that include trajectories; ordered as by the larvae centers OpenCV contours
     LarvaeTrajects  _trajects;
-//    LarvaeTrajectories  _trajects;
 //    PointNames  _pointNames;
 protected:
     //! \brief Load filtered larvae trajectories from the raw values
@@ -112,8 +119,7 @@ public:
     //! \brief Tracker constructor
     //! \param rLarvaStdMax  - max ratio of the Standard Deviation of the larva center on matching, ~ 1..3
     //! \param rLarvaPtsMin  - min ratio of the larva points to acccept the DLC-tracked larva, (0, 1]
-    Tracker(float rLarvaStdMax=1.5, float rLarvaPtsMin=0.4): _matchParams{rLarvaStdMax, rLarvaPtsMin}, _matchStat{0}, _trajects()
-        , wndFgName("Foreground ROI"), active(true)  {}
+    Tracker(float rLarvaStdMax=1.5, float rLarvaPtsMin=0.4): _matchParams{rLarvaStdMax, rLarvaPtsMin}, _matchStat{0}, _trajects(), wndFgName("Foreground ROI"), active(true)  {}
 
     //! \brief Load larvae trajectories
     //! \param filename  - hdf5 file name, containing larvae trajectories
@@ -143,7 +149,6 @@ public:
 //    }
 
 //    const PointNames& pointNames() const  { return _pointNames; }
-//    const LarvaeTrajectories& trajects() const  { return _trajects; }
 
 //    bool empty() const  { return _trajects.empty(); }
 //    void clear()

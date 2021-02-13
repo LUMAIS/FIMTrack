@@ -34,10 +34,10 @@
 #include <array>
 #include <algorithm>
 #include <unordered_set>
-//#if defined(DEBUG) || defined(_DEBUG)
+//#if defined(QT_DEBUG) || defined(_QT_DEBUG)
 //#include <thread>  // Required to wait for the window popup to show additional informaiton on crash
 //#include <chrono>
-//#endif  // DEBUG
+//#endif  // QT_DEBUG
 #include "Preprocessor.hpp"
 
 using namespace cv;
@@ -634,10 +634,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     cv::grabCut(imgClr, maskClaheRoi, fgrect, bgdModel, fgdModel, 2, cv::GC_INIT_WITH_MASK);  // GC_INIT_WITH_RECT |
                     //} catch(cv::Exception& err) {
                     //    printf("WARNING %s> OpenCV exception in grabCut 1: %s\n", __FUNCTION__, err.msg.c_str());
-//#if defined(DEBUG)// || defined(_DEBUG)
+//#if defined(QT_DEBUG)// || defined(_QT_DEBUG)
 //                  //      showGrabCutMask("9.5.GcMaskClahe", maskClaheRoi, cvWnds);
 //                  //      std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
-//#endif  // DEBUG  //
+//#endif  // QT_DEBUG  //
                     //    throw;
                     //}
                     if(DEV_MODE >= 3 && extraVis)
@@ -834,11 +834,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             if(nofg) {
                 printf("WARNING %s> the pure foreground or background is empty\n", __FUNCTION__);
                 imgFgOut = img;
-//#if defined(DEBUG) || defined(_DEBUG)
+//#if defined(QT_DEBUG) || defined(_QT_DEBUG)
 //                showGrabCutMask("maskCompound", maskTmp, cvWnds);
 //                std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
 //                throw std::logic_error("Debug Exception");
-//#endif  // DEBUG
+//#endif  // QT_DEBUG
             } else assert(!imgRoiFg.empty() && "Unexpeted imgFgOut content");
 
             if(wndName) {
