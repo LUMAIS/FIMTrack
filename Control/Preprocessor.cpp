@@ -238,8 +238,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     }
     //printf("%s> cvWnds: %lu\n", __FUNCTION__, cvWnds.size());
 
-    vector<dlc::Larva::Points> hulls;
-    Rect  fgrect = dlc::getLarvaeRoi(larvae, img.size(), matchStat.distAvg + matchStat.distStd, &hulls);
+    Rect  fgrect = dlc::getLarvaeRoi(larvae, img.size(), matchStat.distAvg + matchStat.distStd);
 
     constexpr  unsigned  histSize = 256;
     std::array<unsigned, histSize>  larvaHist = {0};
@@ -265,8 +264,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 Mat maskProbFgOrig(fgrect.size(), CV_8UC1, Scalar(0));  // Empty mask;  Mat::zeros(fgrect.size(), CV_8UC1)
                 //cv::drawContours(maskProbFgOrig, hulls, -1, Scalar(cv::GC_PR_FGD), cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, Point(-fgrect.x, -fgrect.y));  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
                 // Note: the color of nested (overlaping) contours is inverted, so each hull should be drawn separately
-                for(const auto& hull: hulls)
-                    cv::drawContours(maskProbFgOrig, vector<dlc::Larva::Points>(1, hull), 0, cv::GC_PR_FGD, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-fgrect.x, -fgrect.y)); // Scalar(cv::GC_PR_FGD)
+                for(const auto& lv: larvae)
+                    cv::drawContours(maskProbFgOrig, vector<dlc::Larva::Points>(1, lv.hull), 0, cv::GC_PR_FGD, cv::FILLED, cv::LINE_8, cv::noArray(), 0, Point(-fgrect.x, -fgrect.y)); // Scalar(cv::GC_PR_FGD)
                 // Dilate convex to extract probable foreground
                 const unsigned  opIters = round(1 + matchStat.distAvg / 4.f);  // Operation iterations
                 cv::dilate(maskProbFgOrig, maskTmp, Mat(), Point(-1, -1), opIters, cv::BORDER_CONSTANT, Scalar(cv::GC_PR_FGD));  // 2.5 .. 4; Iterations: ~= Ravg / 8 + 1
@@ -845,6 +844,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 Mat imgFgVis;  // Visualizing foreground image
                 imgFgOut.copyTo(imgFgVis);
                 cv::rectangle(imgFgVis, fgrect, cv::Scalar(CLR_FG), 1);
+                vector<dlc::Larva::Points>  hulls;
+                hulls.reserve(larvae.size());
+                for(const auto& lv: larvae)
+                    hulls.push_back(lv.hull);
                 cv::drawContours(imgFgVis, hulls, -1, 0xFF, 2);  // index, color; v or Scalar(v), cv::GC_FGD, GC_PR_FGD
                 showCvWnd(wndName, imgFgVis, cvWnds);
                 //// Set image to black outside the mask
@@ -1079,12 +1082,12 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
     // Refine the foreground an approximaiton (convexHull) of the DLC-tracked larva contours
     vector<float>  areas;
     areas.reserve(larvae.size());
-    for(const auto& hull: hulls) {
+    for(const auto& lv: larvae) {
         // Note: OpenCV expects points to be ordered in contours, so convexHull() is used
-        areas.push_back(cv::contourArea(hull));
+        areas.push_back(cv::contourArea(lv.hull));
 
 //        // Evaluate brightness
-//        const Rect  brect = boundingRect(hull);
+//        const Rect  brect = boundingRect(lv.hull);
 //        const int  xEnd = brect.x + brect.width;
 //        const int  yEnd = brect.y + brect.height;
 //        //fprintf(stderr, "%s> Brightness ROI (%d, %d; %d, %d) content:\n", __FUNCTION__, brect.x, brect.y, brect.width, brect.height);
@@ -1095,7 +1098,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //                // Omit 0 values, which are definitely background
 //                if(bval < grayThesh)  // !bval
 //                    continue;
-//                if(pointPolygonTest(hull, Point2f(x, y), false) >= 0)
+//                if(pointPolygonTest(lv.hull, Point2f(x, y), false) >= 0)
 //                    ++larvaHist[bval];  // brightness
 //                else ++bgHist[bval];
 //            }

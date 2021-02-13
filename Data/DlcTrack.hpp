@@ -33,9 +33,9 @@ struct Larva {
     Id id;
     Point  center;  //!< Center point
     Points  points;  //!< Filtered larva points; ATTENTION: DLC-provided points contain points inside the larva and those points are not ordered
-    //LarvaPoints  hull;  //!< Convex hull
+    Points  hull;  //!< Convex hull being built from points on data loading
 
-    Larva(): id(0), center(), points()  {}
+    Larva(): id(0), center(), points(), hull()  {}
 
     void clear()
     {
@@ -90,9 +90,8 @@ const Larva* matchedLarva(const Point& center, const Point& stddev, const Larvae
 //! \param larvae  - input larvae contours
 //! \param area  - size of the input area
 //! \param span  - span to the rect borders from the larvae
-//! \param larvaHulls  - optional output larvae hulls
 //! \return ROI rect, containing the larvae
-cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span=0, vector<Larva::Points>* larvaHulls=nullptr);
+cv::Rect getLarvaeRoi(const Larvae& larvae, const cv::Size& area, int span=0);
 
 //! \brief The Tracker class
 class Tracker {
