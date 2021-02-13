@@ -231,13 +231,17 @@ void MainGUI::showImage(unsigned timePoint, QString path)
 
     // Evaluate automatic thresholds
     Mat fltImg;
+    // generate a contours container
+    contours_t contours;
+    contours_t collidedContours;
+
     static unsigned timePointPrev = 0;
     if(_dlcTrack.active && _dlcTrack.autoThreshold && timePoint < _dlcTrack.size()) {
+        contours_t conts;  // Initial contours
         //printf("%s calling estimateThresholds...> timePoint: %u, DLC trajs size: %lu; current thresholds(gray: %d, minLarvArea: %d, maxLarvArea: %d)\n"
         //    , __FUNCTION__, timePoint, _dlcTrack.size()
         //    , GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea);
-        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg,
-                                         img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat(), timePointPrev + 1 == timePoint, _dlcTrack.wndFgName, true);
+        Preprocessor::estimateThresholds(GeneralParameters::iGrayThreshold, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, fltImg, conts, img, _dlcTrack.larvae(timePoint), _dlcTrack.matchStat(), timePointPrev + 1 == timePoint, _dlcTrack.wndFgName, true);
         if(AutoThresholdingLimits::iMinLarvaeArea && GeneralParameters::iMinLarvaeArea < AutoThresholdingLimits::iMinLarvaeArea)
             GeneralParameters::iMinLarvaeArea = AutoThresholdingLimits::iMinLarvaeArea;
         if(AutoThresholdingLimits::iMaxLarvaeArea && GeneralParameters::iMaxLarvaeArea > AutoThresholdingLimits::iMaxLarvaeArea)
@@ -249,21 +253,22 @@ void MainGUI::showImage(unsigned timePoint, QString path)
         this->ui->spinBox_graythresh->setValue(GeneralParameters::iGrayThreshold);
         this->ui->spinBox_minSizeThresh->setValue(GeneralParameters::iMinLarvaeArea);
         this->ui->spinBox_maxSizeThresh->setValue(GeneralParameters::iMaxLarvaeArea);
+
+        // filter the contours
+        Preprocessor::sizethreshold(conts, GeneralParameters::iMinLarvaeArea, GeneralParameters::iMaxLarvaeArea, contours, collidedContours);
     }
-    else fltImg = img;
+    else {
+        fltImg = img;
+        // preprocess the image for preview
+        Preprocessor::preprocessPreview(fltImg,
+                                        contours,
+                                        collidedContours,
+                                        GeneralParameters::iGrayThreshold,
+                                        GeneralParameters::iMinLarvaeArea,
+                                        GeneralParameters::iMaxLarvaeArea);
+    }
     timePointPrev = timePoint;
 
-    // generate a contours container
-    contours_t contours;
-    contours_t collidedContours;
-    
-    // preprocess the image for preview
-    Preprocessor::preprocessPreview(fltImg,
-                                    contours, 
-                                    collidedContours, 
-                                    GeneralParameters::iGrayThreshold, 
-                                    GeneralParameters::iMinLarvaeArea, 
-                                    GeneralParameters::iMaxLarvaeArea);
     const cv::Mat grayImg = fltImg.clone();
 
     // set the color to BGR to draw contours and contour sizes into the image

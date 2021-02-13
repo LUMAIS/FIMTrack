@@ -56,6 +56,7 @@ public:
      * @param minSizeThresh  - min expected size of a larva
      * @param maxSizeThresh  - max expected size of a larva
      * @param imgFg  - resulting foreground image
+     * @param larvaConts  - resulting contours for each larva
      * @param imgGray  - input gray-scale image
      * @param larvae  - DLC-tracked larvae
      * @param matchStat  - matching statistics
@@ -63,7 +64,8 @@ public:
      * @param wndName  - window name to display foreground ROI
      * @param extraVis  - extra visualization for the visual tracing and debugging, applicable only when wndName. WARNING: should not be used in the tracking mode (and other frequent subsequent calls) because of the OpenCV incompability with (QT) multithreading
      */
-    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, cv::Mat& imgFg,
+    static void estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh,
+                                   cv::Mat& imgFg, contours_t& larvaConts,
                                    const cv::Mat& imgGray, const dlc::Larvae& larvae,
                                    const dlc::MatchStat& matchStat, bool smooth=false,
                                    const char* wndName=nullptr, bool extraVis=true);
@@ -92,7 +94,21 @@ public:
                                    int const minSizeThresh,
                                    int const maxSizeThresh,
                                    bool checkRoiBorders);
-    
+
+    /**
+     * @brief sizethreshold removes all contours < minSizeThresh and > maxSizeThresh from the given contoursSrc
+     * and stores the results in contoursDst.
+     * @param contoursSrc input set of contours
+     * @param minSizeThresh minimal contour size
+     * @param maxSizeThresh maximal contour size
+     * @param contoursDst resultant reduced set of contours
+     * @return reduced set of contours
+     */
+    static void sizethreshold(contours_t const & contoursSrc,
+                              int const minSizeThresh,
+                              int const maxSizeThresh,
+                              contours_t & correctContoursDst,
+                              contours_t & biggerContoursDst);
 private:
     Preprocessor();
 
@@ -116,21 +132,6 @@ private:
      * @return the calculated contours
      */
     static void calcContours(cv::Mat const & src, contours_t & contours);
-    
-    /**
-     * @brief sizethreshold removes all contours < minSizeThresh and > maxSizeThresh from the given contoursSrc
-     * and stores the results in contoursDst.
-     * @param contoursSrc input set of contours
-     * @param minSizeThresh minimal contour size
-     * @param maxSizeThresh maximal contour size
-     * @param contoursDst resultant reduced set of contours
-     * @return reduced set of contours
-     */
-    static void sizethreshold(contours_t const & contoursSrc,
-                              int const minSizeThresh,
-                              int const maxSizeThresh,
-                              contours_t & correctContoursDst,
-                              contours_t & biggerContoursDst);
     
     /**
      * @brief roiRestriction checks the contours against the image borders and a user-selected region of interest

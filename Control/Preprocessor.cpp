@@ -219,7 +219,8 @@ unsigned countMaskPix(const Mat& img, uint8_t clr, unsigned lim=-1)
     return num;
 }
 
-void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh, Mat& imgFgOut,
+void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& maxSizeThresh,
+                                      Mat& imgFgOut, contours_t& larvaConts,
                                       const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat,
                                       bool smooth, const char* wndName, bool extraVis)
 {
@@ -513,8 +514,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 // Note: that is not applicable for the Foreground, which is excessive in CLAHE
                 cv::bitwise_or(maskBg, maskClaheBg, maskClaheBg);
 
-                //Mat maskProbFg;  // Probable Foreground mask
-                //maskClaheFg.copyTo(maskProbFg);
+                //Mat maskProbFg = maskClaheFg.clone();  // Probable Foreground mask
                 composeMask(maskClaheFg, maskClaheBg, maskClaheRoi);
                 //printf("%s> 6.3.MaskClaheRoi thresholds (triag: %d, otsu: %d)\n", __FUNCTION__, thrClhTriag, thrClhOtsu);
                 if(DEV_MODE >= 2 && extraVis)
@@ -754,8 +754,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         showCvWnd("9.8.ErdCntAthProbFgRoi", maskClaheAth, cvWnds);
 
                     // Form the compound mask
-                    //Mat maskClaheAthR;
-                    //maskClaheAth.copyTo(maskClaheAthR);
+                    //Mat maskClaheAthR = maskClaheAth.clone();
                     //maskClaheAthR += maskTmp;
                     maskClaheAth += maskGcProbFg;
                     if(DEV_MODE >= 3 && extraVis)
@@ -814,10 +813,10 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // Ensure that edges separating larava are present
                     imgRoiFg.setTo(0, edgesOrig);
                     //imgRoiFg.copyTo(imgFgOut(fgrect));
+                    cv::findContours(imgRoiFg, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                     if(DEV_MODE >= 1 && extraVis) {
                         showCvWnd("13.Foreground", imgRoiFg, cvWnds);  // Resulting foreground
 
-                        cv::findContours(imgRoiFg, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                         maskTmp.setTo(0);
                         cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
                         if(DEV_MODE >= 2)
@@ -826,6 +825,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         const int nblobs = cv::connectedComponents(imgRoiFg, maskTmp);
                         printf("%s> external contours 14.CntForeground: %lu, connected components: %d\n", __FUNCTION__, contours.size(), nblobs);
                     }
+                    // Fill larvaConts from contours
+                    for(auto& cont: contours)
+                        for(auto& pt: cont) {
+                            pt.x += fgrect.x;
+                            pt.y += fgrect.y;
+                        }
+                    larvaConts = move(contours);
 
                     //cv::findContours(imgRoiFg, contours, topology, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);  // cv::CHAIN_APPROX_TC89_L1 or cv::CHAIN_APPROX_SIMPLE for the approximate compressed contours; CHAIN_APPROX_NONE to retain all points as they are;  RETR_EXTERNAL, RETR_LIST to retrieve all countours without any order
                 } else nofg = true;
@@ -833,6 +839,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             if(nofg) {
                 printf("WARNING %s> the pure foreground or background is empty\n", __FUNCTION__);
                 imgFgOut = img;
+                larvaConts.clear();
+                cv::findContours(imgFgOut, larvaConts, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 //#if defined(QT_DEBUG) || defined(_QT_DEBUG)
 //                showGrabCutMask("maskCompound", maskTmp, cvWnds);
 //                std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for the window popup
@@ -841,8 +849,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
             } else assert(!imgRoiFg.empty() && "Unexpeted imgFgOut content");
 
             if(wndName) {
-                Mat imgFgVis;  // Visualizing foreground image
-                imgFgOut.copyTo(imgFgVis);
+                Mat imgFgVis = imgFgOut.clone();  // Visualizing foreground image
                 cv::rectangle(imgFgVis, fgrect, cv::Scalar(CLR_FG), 1);
                 vector<dlc::Larva::Points>  hulls;
                 hulls.reserve(larvae.size());
