@@ -768,6 +768,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     //cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
                     //cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
                     cv::morphologyEx(edgesOrig, edgesOrig, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
+//                    // Eliminate bold areas in edgesOrig
+//                    cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 1);
+//                    edgesOrig -= maskTmp;
                     if(DEV_MODE >= 4 && extraVis)
                         showCvWnd("9.6.8.Rfn2EdgesOrigRoi", edgesOrig, cvWnds);
                     //edgesOrig -= maskTmp;
@@ -842,8 +845,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     updateConditional2(maskAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
 
                     // Erode maskClaheAth and refine maskClaheRoi
-                    cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
+                    //cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
                     updateConditional2(maskClaheAth, maskClaheRoi, 0xFF, cv::GC_PR_FGD, cv::GC_FGD);
+                    updateConditional2(maskClaheAth, maskClaheRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
+
+                    // Use bold areas in edgesOrig as probable foreground
+                    cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 2);
+                    updateConditional2(maskTmp, maskClaheRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
 
                     if(DEV_MODE >= 2 && extraVis)
                          showGrabCutMask("11.RfnPreGcMask", maskClaheRoi, cvWnds);
