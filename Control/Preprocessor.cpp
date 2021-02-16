@@ -348,7 +348,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::erode(maskBg, maskBg, erdKern, Point(-1, -1), 3);
                 composeMask(maskFg, maskBg, maskRoi);
                 //printf("%s> 1.3.MaskOrigROI thresholds (triag: %d, otsu: %d)\n", __FUNCTION__, thrTriag, thrOtsu);
-                if(DEV_MODE >= 4 && extraVis) {
+                if(DEV_MODE >= 5 && extraVis) {
                     showGrabCutMask("1.4.ErdMaskOrigROI", maskRoi, cvWnds);
                     ////showCvWnd("1.4r.ErdBgOrig", maskTmp, cvWnds);
                     //showCvWnd("1.4+.ErdBgOrig", maskBg, cvWnds);
@@ -401,7 +401,8 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 // Extend GrabCut mask with maskAth
                 // Erode the adaptive thresholding of Clahe for more strict foreground (otherwise more touching larae can't be separated properly, see vid_1-026, 040, 051, 060).
                 // Late erosion reduces noise caused by 3.2.ProbFgRoiMask on merging it later to expand the connected components (see vid_1-040, 042)
-                cv::erode(maskAth, maskAth, erdKern, Point(-1, -1), 1);
+                //cv::erode(maskAth, maskAth, erdKern, Point(-1, -1), 1);
+                cv::morphologyEx(maskAth, maskAth, cv::MORPH_OPEN, erdKern, Point(-1, -1), 3);  // MORPH_OPEN, MORPH_CLOSE; 1..2 (with preliminary erosion); 2..4
                 if(DEV_MODE >= 2 && extraVis)
                     showCvWnd("2.4.ErdCntRfnAthProbFgRoi", maskAth, cvWnds);
 
@@ -519,14 +520,14 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 cv::erode(maskClaheFg, maskTmp, erdKern, Point(-1, -1), 2);
                 cv::findContours(maskTmp, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                 cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
-                if(DEV_MODE >= 4 && extraVis)
+                if(DEV_MODE >= 6 && extraVis)
                     showCvWnd("6.2.1.CntRfnClaheRoi", maskTmp, cvWnds);
                 maskClaheBg -= maskTmp;
 
                 // Recover possible closed true background, where maskBg and maskClaheBg agree
                 maskClaheBg += maskBg;
-                if(DEV_MODE >= 7 && extraVis)
-                    showCvWnd("6.2.2.maskBgVlaheRoi", maskBg, cvWnds);
+                if(DEV_MODE >= 5 && extraVis)
+                    showCvWnd("6.2.2.maskBgClaheRoi", maskBg, cvWnds);
 
                 //Mat maskProbFg = maskClaheFg.clone();  // Probable Foreground mask
                 composeMask(maskClaheFg, maskClaheBg, maskClaheRoi);
@@ -706,6 +707,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         showCvWnd("9.6.0.3.CntRfnEdgesOrigRoi", maskTmp, cvWnds);
                     //// Note: counter examples for iterations=4-5, causing larvae merge: vid_1-021-023, 26-29
                     cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 6);  // 4 .. 6;
+                    //cv::morphologyEx(maskTmp, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 2);  // MORPH_OPEN, MORPH_CLOSE
                     // Ensure that backgrouned is not covered with the closed foreground contours
                     maskTmp -= maskClaheBg;
                     if(DEV_MODE >= 4 && extraVis)
