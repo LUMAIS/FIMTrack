@@ -195,20 +195,71 @@ void resetCvWnds(const char* wndName, unordered_set<String>& cvWnds)
     cvWnds.clear();
 }
 
-void updateConditional2(const Mat& src, Mat& upd, uint8_t clrSrc, uint8_t clrUpd, uint8_t clrRes)
+template <typename ClrT>
+uint8_t cvImgTypeByPix()
 {
-    assert(upd.size() == src.size() && upd.type() == src.type() && upd.type() == CV_8UC1 && "Input matrices should be of the same kind");
+    constexpr bool  sign = std::is_signed<ClrT>::value;
+    constexpr bool  floating = std::is_floating_point<ClrT>::value;
+    uint8_t  depth = -1;
+    switch(sizeof(ClrT)) {
+    case 1:
+        //static_assert(!floating, "Only integral types should be used for 8 bit images");
+        assert(!floating && "Only integral types should be used for 8 bit images");
+        depth = CV_8U + sign;
+        break;
+    case 2:
+        depth = floating ? CV_16F : CV_16U + sign;
+        break;
+    case 4:
+        assert(sign && "Only signed types (int, float) should be used for 32 bit images");
+        depth = CV_32S + floating;
+        break;
+    case 8:
+        assert(sign && floating && "Only float64_t should be used for 64 bit images");
+        depth = CV_64F;
+        break;
+    }
+    assert(depth <= 7 && "Unexpected image depth");
+    return CV_MAKETYPE(depth, 1);
+}
+
+// Note: add_const<T> used to prevent temolate type inference
+template <typename ClrST, typename ClrUT>
+void updateConditional(const Mat& src, Mat& upd, typename std::add_const<ClrST>::type clrSrc, typename std::add_const<ClrUT>::type clrUpd, typename std::add_const<ClrUT>::type clrRes)
+{
+    assert(upd.size() == src.size() && upd.type() == cvImgTypeByPix<ClrUT>() && src.type() == cvImgTypeByPix<ClrST>() && "Input matrices should be of the same size and should have compatible types");
     for(int y = 0; y < upd.rows; ++y) {
-        const uint8_t* sval = src.ptr<uint8_t>(y);  // Note: other type for non CV_8UC1
-        uint8_t* uval = upd.ptr<uint8_t>(y);  // Note: other type for non CV_8UC1
+        const ClrST* sval = src.ptr<ClrST>(y);  // Note: other type for non CV_8UC1
+        ClrUT* uval = upd.ptr<ClrUT>(y);  // Note: other type for non CV_8UC1
         for(int x = 0; x < upd.cols; ++x, ++sval, ++uval)
             if(*uval == clrUpd && *sval == clrSrc)  // Note: typically, uval matches less frequently than sval
                 *uval = clrRes;
     }
 }
 
+// Note: use graystyle images by default (however, int is the default type for integral numeric literals)
+void updateConditional(const Mat& src, Mat& upd, uint8_t clrSrc, uint8_t clrUpd, uint8_t clrRes)
+{
+    updateConditional<uint8_t, uint8_t>(src, upd, clrSrc, clrUpd, clrRes);
+}
+
+template <typename ClrT>
+void updateConditional(Mat& upd, ClrT clrUpd, ClrT clrRes)
+{
+    //if(upd.type() != cvImgTypeByPix<ClrT>())
+    //    printf("ERROR %s> img type: %d, type by color: %d\n", __FUNCTION__, upd.type(), cvImgTypeByPix<ClrT>());
+    assert(upd.type() == cvImgTypeByPix<ClrT>() && "Unexpected image type");
+    for(int y = 0; y < upd.rows; ++y) {
+        ClrT* uval = upd.ptr<ClrT>(y);  // Note: other type for non CV_8UC1
+        for(int x = 0; x < upd.cols; ++x, ++uval)
+            if(*uval == clrUpd)  // Note: typically, uval matches less frequently than sval
+                *uval = clrRes;
+    }
+}
+
 unsigned countMaskPix(const Mat& img, uint8_t clr, unsigned lim=-1)
 {
+    assert(img.type() == CV_8UC1 && "Unexpected image type");
     unsigned num = 0;
     for(int y = 0; y < img.rows; ++y) {
         const uint8_t* pix = img.ptr<uint8_t>(y);  // Note: other type for non CV_8UC1
@@ -446,12 +497,12 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                 //// Reduce maskAth with the Probable Background (it never includes true Background but might contain the Probable Background)
                 // Note: for the original masks, the Probable Background in many cases is true Foreground, so that reduction might be harmful
-                //updateConditional2(maskRoiOrig, maskAth, cv::GC_PR_BGD, 0xFF, 0);  // Reset non-foreground regions of maskAth (set to 0)
+                //updateConditional(maskRoiOrig, maskAth, cv::GC_PR_BGD, 0xFF, 0);  // Reset non-foreground regions of maskAth (set to 0)
                 //if(DEV_MODE >= 10 && extraVis)
                 //    showCvWnd("4.1.RfnErdCntRfnAthProbFgRoi", maskAth, cvWnds);
 
                 // Extend GrabCut mask with the refined maskAth as probable foreground
-                updateConditional2(maskAth, maskRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
+                updateConditional(maskAth, maskRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
                 if(DEV_MODE >= 7 && extraVis)
                      showGrabCutMask("4.2.PreGcMaskOrig", maskRoi, cvWnds);
 
@@ -604,7 +655,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 if(DEV_MODE >= 10 && extraVis)
                     showCvWnd("9.1.ErdCntRfnAthProbFgClaheRoi", maskClaheAth, cvWnds);
                 // Reduce maskClaheAth with the Probable Background (it never includes true Background but might contain the Probable Background)
-                updateConditional2(maskClaheRoi, maskClaheAth, cv::GC_PR_BGD, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
+                updateConditional(maskClaheRoi, maskClaheAth, cv::GC_PR_BGD, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
                 if(DEV_MODE >= 2 && extraVis)
                     showCvWnd("9.2.RfnErdCntRfnAthProbFgRoi", maskClaheAth, cvWnds);
                 //// Refine edges, substructing maskClaheAth to eliminate noisy contours, which do not bound larvae
@@ -613,11 +664,11 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                 //if(extraVis)
                 //    showCvWnd("9.3.RfnEdgesClaheRoi", edgesOrig, cvWnds);
                 // Refine GrabCut mask with the refined maskClaheAth as the only foreground, the remained former foreground shuold become possible foreground
-                updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);
+                updateConditional(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);
                 // Degrade pure Foreground to the one present in maskAth
-                updateConditional2(maskAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);
+                updateConditional(maskAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);
                 // Ensure that GrabCut mask does not mark as pure background regions that belong to maskAth, promote those regions to the probable background
-                updateConditional2(maskAth, maskClaheRoi, 0xFF, cv::GC_BGD, cv::GC_PR_BGD);
+                updateConditional(maskAth, maskClaheRoi, 0xFF, cv::GC_BGD, cv::GC_PR_BGD);
                 if(DEV_MODE >= 3 && extraVis)
                      showGrabCutMask("9.4.PreGcMaskClahe", maskClaheRoi, cvWnds);
 
@@ -662,7 +713,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // Feth exclusively probable foreground without the probable background to evaluate brightness threshold accurately
                     Mat maskGcProbFg(maskClaheRoi.size(), maskClaheRoi.type(), Scalar(0));  // Mat::zeros(maskClaheRoi.size(), maskClaheRoi.type())
                     //cv::threshold(maskClaheRoi, maskGcProbFg, cv::GC_PR_FGD-1, 0xFF, cv::THRESH_BINARY);  // thresh, maxval, type;
-                    updateConditional2(maskClaheRoi, maskGcProbFg, cv::GC_PR_FGD, 0, 0xFF);  // Reset non-foreground regions of maskClaheAth (set to 0)
+                    updateConditional(maskClaheRoi, maskGcProbFg, cv::GC_PR_FGD, 0, 0xFF);  // Reset non-foreground regions of maskClaheAth (set to 0)
                     //maskGcProbFg.setTo(0, maskClaheBg);  // Note: this is redundant because ProbFg never contains the true Backgound
                     if(DEV_MODE >= 7 && extraVis)
                         showCvWnd("9.6.ProbFgRoiMask", maskGcProbFg, cvWnds);
@@ -799,7 +850,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // Late erosion reduces noise caused by 3.2.ProbFgRoiMask on merging it later to expand the connected components (see vid_1-040, 042)
                     cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
                     // Reduce maskClaheAth with the Probable Background (it never includes true Background but might contain the Probable Background)
-                    updateConditional2(maskClaheRoi, maskClaheAth, cv::GC_PR_BGD, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
+                    updateConditional(maskClaheRoi, maskClaheAth, cv::GC_PR_BGD, 0xFF, 0);  // Reset non-foreground regions of maskClaheAth (set to 0)
                     if(DEV_MODE >= 10 && extraVis)
                         showCvWnd("9.8.ErdCntAthProbFgRoi", maskClaheAth, cvWnds);
 
@@ -840,18 +891,18 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 //                        showCvWnd("10.2.MclRfnMopnProbFgRoi", maskClaheAth, cvWnds);
 
                     // Refine maskClaheRoi from ProbFg to ProbBg [/FG] based on maskClaheAthXXX
-                    //updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
-                    updateConditional2(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);  // GC_PR_BGD
-                    updateConditional2(maskAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
+                    //updateConditional(maskClaheAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
+                    updateConditional(maskClaheAth, maskClaheRoi, 0, cv::GC_FGD, cv::GC_PR_FGD);  // GC_PR_BGD
+                    updateConditional(maskAth, maskClaheRoi, 0, cv::GC_PR_FGD, cv::GC_PR_BGD);
 
                     // Erode maskClaheAth and refine maskClaheRoi
                     //cv::erode(maskClaheAth, maskClaheAth, erdKern, Point(-1, -1), 1);
-                    updateConditional2(maskClaheAth, maskClaheRoi, 0xFF, cv::GC_PR_FGD, cv::GC_FGD);
-                    updateConditional2(maskClaheAth, maskClaheRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
+                    updateConditional(maskClaheAth, maskClaheRoi, 0xFF, cv::GC_PR_FGD, cv::GC_FGD);
+                    updateConditional(maskClaheAth, maskClaheRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
 
                     // Use bold areas in edgesOrig as probable foreground
                     cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 2);
-                    updateConditional2(maskTmp, maskClaheRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
+                    updateConditional(maskTmp, maskClaheRoi, 0xFF, cv::GC_PR_BGD, cv::GC_PR_FGD);
 
                     if(DEV_MODE >= 2 && extraVis)
                          showGrabCutMask("11.RfnPreGcMask", maskClaheRoi, cvWnds);
@@ -864,7 +915,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                     // Extract the foreground mask extended with the probable foreground withot the backround to evaluate brightness threshold accurately
                     cv::threshold(maskClaheRoi, maskTmp, cv::GC_FGD, 0xFF, cv::THRESH_TOZERO_INV);  // thresh, maxval, type;
-                    updateConditional2(maskClaheRoi, maskTmp, cv::GC_PR_FGD, 0, 0xFF);  // Reset non-foreground regions of maskClaheAth (set to 0)
+                    updateConditional(maskClaheRoi, maskTmp, cv::GC_PR_FGD, 0, 0xFF);  // Reset non-foreground regions of maskClaheAth (set to 0)
 
                     // Note: reuse imgRoiFg for the resulting image
                     imgFgOut = Mat::zeros(img.size(), img.type());  // Mat(img.size(), img.type(), Scalar(0));  // cv::GC_BGD
@@ -882,8 +933,19 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         if(DEV_MODE >= 2)
                             showCvWnd("14.CntForeground", maskTmp, cvWnds);
 
-                        const int nblobs = cv::connectedComponents(imgRoiFg, maskTmp);
-                        printf("%s> external contours 14.CntForeground: %lu, connected components: %d\n", __FUNCTION__, contours.size(), nblobs);
+                        Mat comps;
+                        const uint16_t  nblobs = cv::connectedComponents(imgRoiFg, comps, 4, CV_16U);
+                        //printf("%s> comps components type: %d\n", __FUNCTION__, comps.type());
+                        printf("%s> external contours 14.CntForeground: %lu, connected components: %d\n", __FUNCTION__, contours.size(), nblobs);  // , matType: %d, maskTmp.type()
+                        // Draw connected components with distinct colors
+                        // Note: comps is not CV_8U single-channel
+                        //printf("%s> maskTmp components type: %d\n", __FUNCTION__, maskTmp.type());
+                        maskTmp.setTo(0);
+                        for(uint16_t i = 1; i <= nblobs; ++i)
+                            updateConditional<uint16_t, uint8_t>(comps, maskTmp, i, 0, 256.f / nblobs * i - 1);
+                        if(DEV_MODE >= 3) {
+                            showCvWnd("15.ComponentsMask", maskTmp, cvWnds);
+                        }
                     }
                     // Fill larvaConts from contours
                     for(auto& cont: contours)
