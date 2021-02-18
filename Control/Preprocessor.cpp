@@ -746,8 +746,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     // Note: dilate for the combined edges is required to ensure separation of larvae
                     cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);  // 1..2
                     if(DEV_MODE >= 4 && extraVis) {
-                      showCvWnd("9.6.0.1.EdgProbFgRoiMask", maskTmp, cvWnds);
-                      showCvWnd("9.6.0.1e.RfnEdgProbFgRoiMask", edgesOrig, cvWnds);
+                        if(DEV_MODE >= 7)
+                            showCvWnd("9.6.0.1.EdgProbFgRoiMask", maskTmp, cvWnds);
+                        showCvWnd("9.6.0.1e.RfnEdgProbFgRoiMask", edgesOrig, cvWnds);
                     }
 //                    // Add reduced maskGcProbFg
 //                    cv::subtract(maskGcProbFg, edgesOrig, maskTmp);
@@ -776,7 +777,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         // Reduce edges orig by the combined adaptive thresholds
                         edgesOrig -= maskAthCmb;
                         if(DEV_MODE >= 4 && extraVis) {
-                            showCvWnd("9.6.0.3.MaskAthCmbRoi", maskAthCmb, cvWnds);
+                            showCvWnd("9.6.0.3.AthCmbRoi", maskAthCmb, cvWnds);
                             showCvWnd("9.6.0.3e.RdsRfnEdgesOrigRoi", edgesOrig, cvWnds);
                         }
 
@@ -805,35 +806,57 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         cv::findContours(maskClaheFg, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                         maskTmp.setTo(0);
                         cv::drawContours(maskTmp, contours, -1, 0xFF, cv::FILLED);  // cv::FILLED, 1
-                        //maskTmp -= maskClaheBg;  // cv::bitwise_not(maskTmp, maskTmp);
+
                         //// Remove noise inside larva caused by background
                         ////cv::dilate(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);
                         ////cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);
                         //cv::morphologyEx(maskTmp, maskTmp, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
-                        if(DEV_MODE >= 4 && extraVis) {
+
+                        if(DEV_MODE >= 8 && extraVis) {
                             //showCvWnd("9.6.0.4.0.MaskClaheFgRoi", maskClaheFg, cvWnds);
-                            showCvWnd("9.6.0.4.FlCntClaheFgRoi", maskTmp, cvWnds);
+                            showCvWnd("9.6.0.4.1.FlCntClaheFgRoi", maskTmp, cvWnds);
                         }
+
+                        // Ensure that backgrouned is not covered with the closed foreground contours
+                        maskTmp -= maskClaheBg;  // cv::bitwise_not(maskTmp, maskClaheBg);
+                        if(DEV_MODE >= 4 && extraVis)
+                            showCvWnd("9.6.0.4.2.NBgFlCntClaheFgRoi", maskTmp, cvWnds);
 
                         maskTmp -= maskAthCmb;
                         if(DEV_MODE >= 4 && extraVis)
                             showCvWnd("9.6.0.5.RfnFlCntClaheFgRoi", maskTmp, cvWnds);
-                    }
 
-//                    //// Note: counter examples for iterations=4-5, causing larvae merge: vid_1-021-023, 26-29
-//                    cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 6);  // 4 .. 6;
-//                    //cv::morphologyEx(maskTmp, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 2);  // MORPH_OPEN, MORPH_CLOSE
+//                        //// Note: counter examples for iterations=4-5, causing larvae merge: vid_1-021-023, 26-29
+//                        cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 6);  // 4 .. 6;
+//                        //cv::morphologyEx(maskTmp, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 2);  // MORPH_OPEN, MORPH_CLOSE
 
-                    // Ensure that backgrouned is not covered with the closed foreground contours
-                    maskTmp -= maskClaheBg;
-                    //cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 3);  // 4 .. 6;
-                    cv::morphologyEx(maskTmp, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 3);  // MORPH_OPEN, MORPH_CLOSE
-                    // Erode excluding blocks to retain contours
-                    cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);
-                    edgesOrig -= maskTmp;
-                    if(DEV_MODE >= 4 && extraVis) {
-                        showCvWnd("9.6.0.5b.Rfn2FlCntClaheFgRoi", maskTmp, cvWnds);
-                        showCvWnd("9.6.0.6.Rds2RfnEdgesOrigRoi", edgesOrig, cvWnds);
+                        // Retain the reduced combined mask to extract its contours
+                        maskTmp.copyTo(maskAthCmb);
+                        //cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 3);  // 4 .. 6;
+                        cv::morphologyEx(maskTmp, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 3);  // MORPH_OPEN, MORPH_CLOSE
+                        // Retain contours from the reduced combined mask to complement base edges (? CLOSED / dilated by 1 .. 2)
+                        maskAthCmb -= maskTmp;
+
+                        // Erode excluding blocks to retain contours
+                        // Note: errosion 1 is not sufficient to prevent holes in contours, see vid_1-020, and other cases of larva extending with background noise or merging nearby larvae
+                        cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 2);  // 1..2;
+                        edgesOrig -= maskTmp;
+
+                        if(DEV_MODE >= 4 && extraVis) {
+                            showCvWnd("9.6.0.5b.Rfn2FlCntClaheFgRoi", maskTmp, cvWnds);
+                            showCvWnd("9.6.0.5f.Rfn2FlCntClaheFgRoi", maskAthCmb, cvWnds);
+                            showCvWnd("9.6.0.5fr.RdsRfn2FlCntClaheFgRoi", maskAthCmb - edgesOrig, cvWnds);
+                            showCvWnd("9.6.0.6.Rds2RfnEdgesOrigRoi", edgesOrig, cvWnds);
+                        }
+
+                        // ATTENTION: reduction of edges (or OPENIN-ing) here would break external edges (besides solving inner edges to diminish larvae cuts)
+                        //// Extend edges with the extended contours of the combined mask 9.6.0.5.RfnFlCntClaheFgRoi [? that overlap with the extended edges to reduce larva splitting, which might not separate mergin larvae]
+                        //cv::morphologyEx(maskAthCmb, maskAthCmb, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);
+                        edgesOrig += maskAthCmb;  // TODO: + extended (CLOSED) maskAthCmb, otherwise some larvae are merged (see vid-1_12,10)
+                        if(DEV_MODE >= 4 && extraVis)
+                            showCvWnd("9.6.0.6c.Rds2RfnEdgesOrigRoi", edgesOrig, cvWnds);
+
+                        // Reduce edges by 9.6.0.4.FlC... (? reduced by 9.6.0.3), which is reduced by ?(CLOSED) 9.6.0.5f.Rfn2FlCntClaheFgRoi (? reduced by 9.6.0.5fr.R..) and eroded (2..6) (see vid-1_016,20)
                     }
 
                     // Note: substruction of the reduced inverted background leaves smaller holes (otherwies it causes larvae merging in some cases)
@@ -886,17 +909,17 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         //cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 1);
                         //showCvWnd("9.6.7.ErdCntRfnEdgesOrigRoi", maskTmp, cvWnds);
                     }
-                    ////cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
-                    //cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
-                    //cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
-                    cv::morphologyEx(edgesOrig, edgesOrig, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
-//                    // Eliminate bold areas in edgesOrig
-//                    cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 1);
-//                    edgesOrig -= maskTmp;
-                    if(DEV_MODE >= 4 && extraVis)
-                        showCvWnd("9.6.8.Rfn2EdgesOrigRoi", edgesOrig, cvWnds);
-                    //edgesOrig -= maskTmp;
-                    //showCvWnd("9.6.9.ResEdgesOrigRoi", edgesOrig, cvWnds);
+//                    ////cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+//                    //cv::dilate(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+//                    //cv::erode(edgesOrig, edgesOrig, erdKern, Point(-1, -1), 1);
+//                    cv::morphologyEx(edgesOrig, edgesOrig, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
+////                    // Eliminate bold areas in edgesOrig
+////                    cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 1);
+////                    edgesOrig -= maskTmp;
+//                    if(DEV_MODE >= 4 && extraVis)
+//                        showCvWnd("9.6.8.Rfn2EdgesOrigRoi", edgesOrig, cvWnds);
+//                    //edgesOrig -= maskTmp;
+//                    //showCvWnd("9.6.9.ResEdgesOrigRoi", edgesOrig, cvWnds);
 
                     // Reduce holes in maskClaheAth (or eroded maskClaheAth) by extending it with:
                     // either erode the ProbFgRoiMask (works the best)
