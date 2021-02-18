@@ -853,27 +853,43 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                             showCvWnd("9.6.6.1.FltAprCntClaheRdsEdgesRoi", maskTmp, cvWnds);
                         }
 
+                        // Extend original edges with the contours of complementary parts of maskAthCmb to ensure retaining external contours of larvae
+                        Mat maskTmp2;
+                        cv::erode(maskTmp, maskTmp2, erdKern, Point(-1, -1), 1);
+                        cv::subtract(maskTmp, maskTmp2, maskTmp2);
                         // ATTENTION: reduction of edges (or OPENIN-ing) here would break external edges (besides solving inner edges to diminish larvae cuts)
                         // Extend edges with the contours of the combined mask 9.6.5f.FltAprCntClaheFgRoi [? that overlap with the extended edges to reduce larva splitting, which might not separate mergin larvae]
                         // Note: closing holes in the contours being added is not sufficient and increases larvae cutting
                         //cv::morphologyEx(maskAthCmb, maskAthCmb, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);
-                        edgesOrig += maskAthCmb;  // TODO: + extended (CLOSED) maskAthCmb, otherwise some larvae are merged (see vid-1_12,10)
+                        edgesOrig += maskTmp2;  //  Test frames: vid-1_12,10 (prevent larvae merging)
                         if(DEV_MODE >= 4 && extraVis)
                             showCvWnd("9.6.6.2.CntExtRds2RfnEdgesOrigRoi", edgesOrig, cvWnds);
+
                         // Diminish inner contours inside larvae edges (see vid-1_016,20)
                         // Reduce probable CLAHE foreground by (?CLOSED) approximate contours of the CLAHE foreground that are reduced by their difference with edges
                         //cv::dilate(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);  // Extend blobs excluding from contours to filter out inner edges more, which also filters out some external contours...
                         ////cv::erode(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);  //  Reduce blobs excluding from contours to retain external edges, which also retains some contours inside larvae...
                         maskAthCmb -= maskTmp;
                         if(DEV_MODE >= 4 && extraVis)
-                            showCvWnd("9.6.6.3.CntExtRds2RfnEdgesOrigRoi", maskAthCmb, cvWnds);
+                            showCvWnd("9.6.6.3.RdsAprCntClaheFgRoi", maskAthCmb, cvWnds);
+
+                        // Extend the approximate contours of the CLAHE foreground by non-thinest and non-thickest parts of the edges, which aer mostly external edges
+                        // Eliminate the thines parts
+                        //cv::morphologyEx(edgesOrig, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);
+                        cv::erode(edgesOrig, maskTmp, erdKern, Point(-1, -1), 1);
+                        maskAthCmb += maskTmp;
+                        if(DEV_MODE >= 4 && extraVis) {
+                            showCvWnd("9.6.6.4.Rds2EdgesOrigRoi", maskTmp, cvWnds);
+                            showCvWnd("9.6.6.5.ExtAprCntClaheFgRoi", maskAthCmb, cvWnds);
+                        }
+
                         // Close holes in the approximate contours of the CLAHE foreground
-                        cv::dilate(maskAthCmb, maskAthCmb, erdKern, Point(-1, -1), 1);
-                        //cv::morphologyEx(maskAthCmb, maskAthCmb, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 2);  // MORPH_OPEN, MORPH_CLOSE
+                        //cv::dilate(maskAthCmb, maskAthCmb, erdKern, Point(-1, -1), 1);
+                        cv::morphologyEx(maskAthCmb, maskAthCmb, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 2);  // MORPH_OPEN, MORPH_CLOSE
                         maskProbClaheFg -= maskAthCmb;
                         if(DEV_MODE >= 4 && extraVis) {
-                            showCvWnd("9.6.6.4.RfnCntExtRds2RfnEdgesOrigRoi", maskAthCmb, cvWnds);
-                            showCvWnd("9.6.6.5.RdsFlCntClaheFgRoi", maskProbClaheFg, cvWnds);
+                            showCvWnd("9.6.6.6.RfnAprCntClaheFgRoi", maskAthCmb, cvWnds);
+                            showCvWnd("9.6.6.7.RdsFlCntClaheFgRoi", maskProbClaheFg, cvWnds);
                         }
 
                         // Erode the reduced probable CLAHE foreground
@@ -881,14 +897,14 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         // Diminish inner contours in edges
                         edgesOrig -= maskProbClaheFg;
                         if(DEV_MODE >= 4 && extraVis) {
-                            showCvWnd("9.6.6.6.ErdRdsFlCntClaheFgRoi", maskProbClaheFg, cvWnds);
-                            showCvWnd("9.6.6.7.RdsCntExtRds2RfnEdgesOrigRoi", edgesOrig, cvWnds);
+                            showCvWnd("9.6.6.8.ErdRdsFlCntClaheFgRoi", maskProbClaheFg, cvWnds);
+                            showCvWnd("9.6.6.9.PreclnEdgesOrigRoi", edgesOrig, cvWnds);
                         }
 
                         // Extend edges, or close holes in edges (which are already cleaned from the internal noise) to separate merging larvae
                         cv::morphologyEx(edgesOrig, edgesOrig, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);
                         if(DEV_MODE >= 4 && extraVis)
-                            showCvWnd("9.6.6.8.CleanedEdgesOrigRoi", edgesOrig, cvWnds);
+                            showCvWnd("9.6.6.10.CleanedEdgesOrigRoi", edgesOrig, cvWnds);
                     }
 
                     // Note: substruction of the reduced inverted background leaves smaller holes (otherwies it causes larvae merging in some cases)
