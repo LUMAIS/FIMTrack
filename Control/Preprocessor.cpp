@@ -833,9 +833,12 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                         // Reduce the contours of the combined mask by its bold (larger) blobs, temporary storing those areas to complement the original edges
                         //cv::erode(maskAthCmb, maskTmp, erdKern, Point(-1, -1), 3);  // 4 .. 6;
+                        cv::morphologyEx(maskAthCmb, maskTmp, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
                         cv::morphologyEx(maskAthCmb, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 3);  // MORPH_OPEN, MORPH_CLOSE
                         // Retain contours from the reduced combined mask to complement base edges (? CLOSED / dilated by 1 .. 2)
-                        maskAthCmb -= maskTmp;
+                        Mat maskTmp2;
+                        cv::dilate(maskTmp, maskTmp2, erdKern, Point(-1, -1), 1);
+                        maskAthCmb -= maskTmp2;
 
                         // Erode excluding blocks to retain contours
                         // Note: errosion 1 is not sufficient to prevent holes in contours, see vid_1-020, and other cases of larva extending with background noise or merging nearby larvae
@@ -854,7 +857,6 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         }
 
                         // Extend original edges with the contours of complementary parts of maskAthCmb to ensure retaining external contours of larvae
-                        Mat maskTmp2;
                         cv::erode(maskTmp, maskTmp2, erdKern, Point(-1, -1), 1);
                         cv::subtract(maskTmp, maskTmp2, maskTmp2);
                         // ATTENTION: reduction of edges (or OPENIN-ing) here would break external edges (besides solving inner edges to diminish larvae cuts)

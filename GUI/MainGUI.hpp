@@ -69,7 +69,11 @@ class MainGUI : public QMainWindow
     Q_OBJECT
     
 public:
-    explicit MainGUI(QWidget *parent = 0);    
+    explicit MainGUI(QWidget *parent = 0);
+    void init(int argc, char *argv[]);
+    void loadImages(QStringList& fileNames);
+    void importVideo(const QString& fileName);
+    void loadTracking(const QString& fileName);
     ~MainGUI();
 
 signals:

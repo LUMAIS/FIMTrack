@@ -41,6 +41,8 @@ int main(int argc, char *argv[])
     
     MainGUI w;
     w.show();
-    
+    if(argc >= 1)
+        w.init(argc, argv);
+
     return a.exec();
 }

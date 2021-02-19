@@ -27,7 +27,7 @@ Details can be found in
 
 For more informations contact fim[AT]uni-muenster[DOT]de
 
-This FIMTrack fork extends the original version with some additional functionality like automatic adjusting of thresholds for each frame based on assisted data (e.g., [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut tacking), visual tracing and debugging of the thresholds inference, import of video in addition to image loading, output results extension.  
+This FIMTrack fork extends the original version with some additional functionality like automatic adjusting of thresholds for each frame based on assisted data (e.g., [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut) tacking, visual tracing and debugging of the thresholds inference, import of video in addition to image loading, output results extension.  
 By Artem Lutov &lt;&#108;ua&#64;&#108;utan&#46;ch&gt;  
 Affiliation: [UNIFR](https://www.unifr.ch), [Lutov Analytics](https://lutan.ch/)
 
@@ -55,13 +55,14 @@ These are instructions for Ubuntu/Debian systems, the packages should be similar
 
 #### Dependencies
 ```
-$ sudo apt-get install git libopencv-dev libhdf5-dev qt5-default g++
+$ sudo apt-get install git libopencv-dev libhdf5-dev qt5-default g++ gengetopt
 ```
 
 #### Build
 
 Execute from the repository directory:
 ```
+./GenerateArgparser.sh
 qmake
 make -j 4
 ```

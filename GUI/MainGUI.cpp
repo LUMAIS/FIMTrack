@@ -33,6 +33,7 @@
 
 #include "MainGUI.hpp"
 #include "ui_MainGUI.h"
+#include "Autogen/cmdline.h"
 
 using namespace cv;
 using std::vector;
@@ -132,9 +133,48 @@ MainGUI::~MainGUI()
     }
 }
 
-void MainGUI::on_btnLoad_clicked()
+//! \brief Arguments parser
+struct ArgParser: gengetopt_args_info {
+    ArgParser(int argc, char **argv) {
+        auto  err = cmdline_parser(argc, argv, this);
+        if(err)
+            throw std::invalid_argument("Arguments parsing failed: " + std::to_string(err));
+    }
+
+    ~ArgParser() {
+        cmdline_parser_free(this);
+    }
+};
+
+void MainGUI::init(int argc, char *argv[])
 {
-    QStringList fileNames = QFileDialog::getOpenFileNames(this, tr("Open Images"), "", QString::fromStdString(StringConstats::fileFormats));
+    if(argc <= 1)
+        return;
+    ArgParser  args(argc, argv);
+    if(!args.inputs_num)
+        return;
+    QStringList files;
+    for(unsigned i = 0; i < args.inputs_num; ++i)
+        files.append(args.inputs[i]);
+
+    if(args.import_flag) {
+        for(const auto& fl: files) {
+            printf("Importing video file: %s\n", fl.toStdString().c_str());
+            this->importVideo(fl);
+        }
+    } else {
+        puts("Loading image files...");
+        this->loadImages(files);
+    }
+    if(args.tracking_given) {
+        printf("Loading tracking data: %s\n", args.tracking_arg);
+        this->loadTracking(args.tracking_arg);
+    }
+
+}
+
+void MainGUI::loadImages(QStringList& fileNames)
+{
     if(!fileNames.isEmpty())
     {
         QCollator col;
@@ -152,9 +192,8 @@ void MainGUI::on_btnLoad_clicked()
     }
 }
 
-void MainGUI::on_btnImport_clicked()
+void MainGUI::importVideo(const QString& fileName)
 {
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Import Video"), "", tr("*.mp4 *.avi *.xvid"));
     if(!fileName.isEmpty()) {
         QFileInfo finf(fileName);
         QDir wdir = finf.dir();  // Working directory
@@ -197,6 +236,40 @@ void MainGUI::on_btnImport_clicked()
         this->setupBaseGUIElements(true);
         this->showImage(0, this->_fileNames.first());
     }
+}
+
+void MainGUI::loadTracking(const QString& fileName)
+{
+    if(!fileName.isEmpty()) {
+        QFileInfo finf(fileName);
+        QString ext = finf.suffix();  // ext = "csv"
+        const cv::Rect  roi(0, 0, _workAreaSize.width, _workAreaSize.height);
+        bool loaded = ext == "csv" ? _dlcTrack.loadCSV(fileName.toStdString(), roi) : _dlcTrack.loadHDF5(fileName.toStdString(), roi);
+        if(!loaded) {
+            ui->cbAutoThresholds->setChecked(false);
+            ui->cbAutoThresholds->setEnabled(false);
+            ui->lb_DlcFile->setText("");
+            // ::warning
+            QMessageBox::critical(this, tr("File loading error"), tr("File loading failed. Please, check the file format."));
+        } else {
+            //_dlcTrackFile = fileName;
+            ui->lb_DlcFile->setText("DLC file: " + fileName.section('/', -1));  // Fetch file name without directories
+            ui->cbAutoThresholds->setEnabled(true);
+            ui->cbAutoThresholds->setChecked(true);
+        }
+    }
+}
+
+void MainGUI::on_btnLoad_clicked()
+{
+    QStringList fileNames = QFileDialog::getOpenFileNames(this, tr("Open Images"), "", QString::fromStdString(StringConstats::fileFormats));
+    this->loadImages(fileNames);
+}
+
+void MainGUI::on_btnImport_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Import Video"), "", tr("*.mp4 *.avi *.xvid"));
+    this->importVideo(fileName);
 }
 
 void MainGUI::showImage(unsigned timePoint, QString path)
@@ -778,24 +851,7 @@ void MainGUI::on_treeView_itemSelectionChanged()
 void MainGUI::on_btnLoadDlcTrack_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this, tr("Open DLC Tracking Data"), "", tr("*.h5 *.csv"));  // "DLC JSON (*.json)"
-    if(!fileName.isEmpty()) {
-        QFileInfo finf(fileName);
-        QString ext = finf.suffix();  // ext = "csv"
-        const cv::Rect  roi(0, 0, _workAreaSize.width, _workAreaSize.height);
-        bool loaded = ext == "csv" ? _dlcTrack.loadCSV(fileName.toStdString(), roi) : _dlcTrack.loadHDF5(fileName.toStdString(), roi);
-        if(!loaded) {
-            ui->cbAutoThresholds->setChecked(false);
-            ui->cbAutoThresholds->setEnabled(false);
-            ui->lb_DlcFile->setText("");
-            // ::warning
-            QMessageBox::critical(this, tr("File loading error"), tr("File loading failed. Please, check the file format."));
-        } else {
-            //_dlcTrackFile = fileName;
-            ui->lb_DlcFile->setText("DLC file: " + fileName.section('/', -1));  // Fetch file name without directories
-            ui->cbAutoThresholds->setEnabled(true);
-            ui->cbAutoThresholds->setChecked(true);
-        }
-    }
+    this->loadTracking(fileName);
 }
 
 void MainGUI::on_cbDlcTrack_stateChanged(int state)

@@ -1,0 +1,77 @@
+# Configuration file for the automatic generation of the input options parsing
+
+package "FIMTrack"
+version "4.0.0"
+versiontext "Author:  (c) Artem Lutov, [Lutov Analytics](https://lutan.ch/)
+Sources:  https://github.com/luav/FIMTrack
+"
+
+purpose "FIMTrack is a larval tracking program to acquire locomotion trajectories\
+ and conformation information of Drosophila melanogaster larvae. It is\
+ optimized for FIM images. FIM is an acronym for FTIR-based Imaging Method,\
+ whereby FTIR is the short form for Frustrated Total Internal Reflection."
+
+usage "FIMTrack [OPTIONS] files...
+
+  files  - input files, collection of images or video to be analyzed.
+  
+Examples:
+  $ ./FIMTrack -t DLC/larvae_tracking.csv job/jpb_1-*.png
+  $ ./FIMTrack -t DLC/larvae_tracking.csv -i job2/video.avi
+"
+
+description "FIMTrack is a larval tracking program to acquire locomotion trajectories\
+ and conformation information of Drosophila melanogaster larvae. It features a\
+ semi-supervised mode, where larvae trajectories van be loaded from a CSV file\
+ (e.g. [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut) tracking data to\
+ support larvae identities tracking).
+"
+
+option  "tracking" t  "load tracking data from the specified CSV file"
+  string  typestr="filename"
+option  "import" i  "import video file instead of loading images"
+  flag off
+
+# Set optional options by default, allow input files to be unnamed parameters
+args "--default-optional --unamed-opts=files"
+#args "--unamed-opts=files"   # Allow input files to be unnamed parameters
+
+
+# = Changelog =
+# v4.0.0 - Arguments parsing added to Larvae Separation FIMTrack dev
+
+# Basic structure, see https://www.gnu.org/software/gengetopt/gengetopt.html#Basic-Usage
+#     package "<packname>"
+#     version "<version>"
+#     purpose "<purpose>"
+#     usage "<usage>"
+#     description "<description>"
+#     versiontext "<versiontext>"
+#
+#     args "<command line options>"
+#
+#     option <long> <short> "<desc>"
+#         {details="<detailed description>"}
+#         {argtype} {typestr="<type descr>"}
+#         {values="<value1>","<value2>",...}
+#         {default="<default value>"}
+#         {dependon="<other option>"}
+#         {required} {argoptional} {multiple}
+#         {hidden}
+#
+#     option <long> <short> "<desc>" flag <on/off>
+#
+#     section "section name" {sectiondesc="optional section description"}
+#
+#     text "a textual sentence"
+#
+#
+# Mutually exclusive options should belong to a group:
+#
+#     defgroup "<group name>" {groupdesc="<group description>"} {required}
+#     groupoption <long> <short> "<desc>" <argtype> group="<group name>" \
+#          {argoptional} {multiple}
+#
+#     defgroup "my grp2"
+#     defgroup "grp1" groupdesc="an option of this group is required" required
+#     groupoption "opta" a "string a" group="grp1" multiple

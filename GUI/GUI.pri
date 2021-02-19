@@ -17,7 +17,8 @@ HEADERS += \
     GUI/LandmarkContainer.hpp \
     GUI/PlotSettings.hpp \
     GUI/PlotWindow.hpp \
-    GUI/PlottingTab.hpp
+    GUI/PlottingTab.hpp \
+    Autogen/cmdline.h
 
 SOURCES += \
     GUI/TrackerSceneLarvaCircle.cpp \
@@ -38,7 +39,8 @@ SOURCES += \
     GUI/LandmarkContainer.cpp \
     GUI/PlotSettings.cpp \
     GUI/PlotWindow.cpp \
-    GUI/PlottingTab.cpp
+    GUI/PlottingTab.cpp \
+    Autogen/cmdline.c
 
 FORMS += \
     GUI/ResultsViewer.ui \
