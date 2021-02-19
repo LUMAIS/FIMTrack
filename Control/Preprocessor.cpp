@@ -833,12 +833,13 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
 
                         // Reduce the contours of the combined mask by its bold (larger) blobs, temporary storing those areas to complement the original edges
                         //cv::erode(maskAthCmb, maskTmp, erdKern, Point(-1, -1), 3);  // 4 .. 6;
-                        cv::morphologyEx(maskAthCmb, maskTmp, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
+                        cv::morphologyEx(maskAthCmb, maskTmp, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 2);  // MORPH_OPEN, MORPH_CLOSE
                         cv::morphologyEx(maskAthCmb, maskTmp, cv::MORPH_OPEN, erdKern, Point(-1, -1), 3);  // MORPH_OPEN, MORPH_CLOSE
-                        // Retain contours from the reduced combined mask to complement base edges (? CLOSED / dilated by 1 .. 2)
+                        //// Retain contours from the reduced combined mask to complement base edges (? CLOSED / dilated by 1 .. 2)
                         Mat maskTmp2;
-                        cv::dilate(maskTmp, maskTmp2, erdKern, Point(-1, -1), 1);
-                        maskAthCmb -= maskTmp2;
+                        //cv::dilate(maskTmp, maskTmp2, erdKern, Point(-1, -1), 1);
+                        //maskAthCmb -= maskTmp2;
+                        maskAthCmb -= maskTmp;
 
                         // Erode excluding blocks to retain contours
                         // Note: errosion 1 is not sufficient to prevent holes in contours, see vid_1-020, and other cases of larva extending with background noise or merging nearby larvae
@@ -886,8 +887,9 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         }
 
                         // Close holes in the approximate contours of the CLAHE foreground
-                        //cv::dilate(maskAthCmb, maskAthCmb, erdKern, Point(-1, -1), 1);
-                        cv::morphologyEx(maskAthCmb, maskAthCmb, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 2);  // MORPH_OPEN, MORPH_CLOSE
+                        ////cv::dilate(maskAthCmb, maskAthCmb, erdKern, Point(-1, -1), 1);  // Note: extends also inner contours
+                        // Note: CLOSE operation is not helpful for a thin line, but works with edges of 2+ px, see vid_1-089
+                        cv::morphologyEx(maskAthCmb, maskAthCmb, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
                         maskProbClaheFg -= maskAthCmb;
                         if(DEV_MODE >= 4 && extraVis) {
                             showCvWnd("9.6.6.6.RfnAprCntClaheFgRoi", maskAthCmb, cvWnds);
@@ -895,15 +897,18 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         }
 
                         // Erode the reduced probable CLAHE foreground
-                        cv::erode(maskProbClaheFg, maskProbClaheFg, erdKern, Point(-1, -1), 2);  // 1..2;
+                        cv::erode(maskProbClaheFg, maskProbClaheFg, erdKern, Point(-1, -1), 2);  // 1..4;
+                        // Cut thin bridges to reduce larvae merging (but it also increases cutting)
+                        cv::morphologyEx(maskAthCmb, maskAthCmb, cv::MORPH_OPEN, erdKern, Point(-1, -1), 1);  // MORPH_OPEN, MORPH_CLOSE
                         // Diminish inner contours in edges
                         edgesOrig -= maskProbClaheFg;
-                        if(DEV_MODE >= 4 && extraVis) {
+                        if(DEV_MODE >= 3 && extraVis) {
                             showCvWnd("9.6.6.8.ErdRdsFlCntClaheFgRoi", maskProbClaheFg, cvWnds);
                             showCvWnd("9.6.6.9.PreclnEdgesOrigRoi", edgesOrig, cvWnds);
                         }
 
                         // Extend edges, or close holes in edges (which are already cleaned from the internal noise) to separate merging larvae
+                        // Note: closing works for the edgesOrig because they are typically thick (~2px).
                         cv::morphologyEx(edgesOrig, edgesOrig, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);
                         if(DEV_MODE >= 4 && extraVis)
                             showCvWnd("9.6.6.10.CleanedEdgesOrigRoi", edgesOrig, cvWnds);
