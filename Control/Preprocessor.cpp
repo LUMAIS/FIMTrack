@@ -275,7 +275,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                                       const Mat& img, const dlc::Larvae& larvae, const dlc::MatchStat& matchStat,
                                       bool smooth, const char* wndName, bool extraVis)
 {
-    constexpr uint8_t  DEV_MODE = 4;  // Show additional tracing in the dev mode: 1..127 (127 is the highest detalization); 2, 5, 10
+    constexpr uint8_t  DEV_MODE = 2;  // Show additional tracing in the dev mode: 1..127 (127 is the highest detalization); 2, 5, 10
     static unordered_set<String>  cvWnds;  // Names of the operating OpenCV windows
 
     if(larvae.empty()) {
@@ -910,7 +910,7 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                         // Extend edges, or close holes in edges (which are already cleaned from the internal noise) to separate merging larvae
                         // Note: closing works for the edgesOrig because they are typically thick (~2px).
                         cv::morphologyEx(edgesOrig, edgesOrig, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 1);
-                        if(DEV_MODE >= 4 && extraVis)
+                        if(DEV_MODE >= 2 && extraVis)
                             showCvWnd("9.6.6.10.CleanedEdgesOrigRoi", edgesOrig, cvWnds);
                     }
 
@@ -1075,25 +1075,47 @@ void Preprocessor::estimateThresholds(int& grayThresh, int& minSizeThresh, int& 
                     //imgRoiFg.copyTo(imgFgOut(fgrect));
                     cv::findContours(imgRoiFg, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
                     if(DEV_MODE >= 1 && extraVis) {
-                        showCvWnd("13.Foreground", imgRoiFg, cvWnds);  // Resulting foreground
+                        showCvWnd("13.RawLarvae", imgRoiFg, cvWnds);  // Resulting foreground
 
                         maskTmp.setTo(0);
                         cv::drawContours(maskTmp, contours, -1, 0xFF, 1);  // cv::FILLED, 1
                         if(DEV_MODE >= 2)
-                            showCvWnd("14.CntForeground", maskTmp, cvWnds);
+                            showCvWnd("14.ContRawLarvae", maskTmp, cvWnds);
 
-                        Mat comps;
-                        const uint16_t  nblobs = cv::connectedComponents(imgRoiFg, comps, 4, CV_16U);
-                        //printf("%s> comps components type: %d\n", __FUNCTION__, comps.type());
-                        printf("%s> external contours 14.CntForeground: %lu, connected components: %d\n", __FUNCTION__, contours.size(), nblobs);  // , matType: %d, maskTmp.type()
-                        // Draw connected components with distinct colors
-                        // Note: comps is not CV_8U single-channel
-                        //printf("%s> maskTmp components type: %d\n", __FUNCTION__, maskTmp.type());
-                        maskTmp.setTo(0);
-                        for(uint16_t i = 1; i <= nblobs; ++i)
-                            updateConditional<uint16_t, uint8_t>(comps, maskTmp, i, 0, 256.f / nblobs * i - 1);
-                        if(DEV_MODE >= 3) {
-                            showCvWnd("15.ComponentsMask", maskTmp, cvWnds);
+                        // Sort contours by decreasing area
+                        // [Delate contours and] close holes
+                        // Merge main contours with the intersecting smallest, whose area at least 5x (5-10) smaller and at least 9 px (see vid_1-034, 20) and if color varistion in the extended overlapping area (2 px) is minimal<=>identify best merging candidate. Merging contours always have overlapping (extended) bounding boxes
+
+                        // Delate contours and close holes
+                        imgRoiFg.setTo(0);
+                        contours_t  conts;
+                        conts.reserve(1);
+                        for(unsigned i = 0; i < contours.size(); ++i) {
+                            maskTmp.setTo(0);
+                            conts.clear();
+                            cv::drawContours(maskTmp, contours, i, 0xFF, cv::FILLED);
+                            cv::dilate(maskTmp, maskTmp, erdKern, Point(-1, -1), 1);
+                            cv::morphologyEx(maskTmp, maskTmp, cv::MORPH_CLOSE, erdKern, Point(-1, -1), 2);
+                            cv::findContours(maskTmp, conts, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                            contours[i] = conts[0];
+                            imgRoi.copyTo(imgRoiFg, maskTmp);
+                        }
+                        showCvWnd("15.Larvae", imgRoiFg, cvWnds);  // Resulting foreground
+
+                        if(DEV_MODE >= 4 && extraVis) {
+                            Mat comps;
+                            const uint16_t  nblobs = cv::connectedComponents(imgRoiFg, comps, 4, CV_16U);
+                            //printf("%s> comps components type: %d\n", __FUNCTION__, comps.type());
+                            printf("%s> external contours 14.ContRawLarvae: %lu, connected components: %d\n", __FUNCTION__, contours.size(), nblobs);  // , matType: %d, maskTmp.type()
+                            // Draw connected components with distinct colors
+                            // Note: comps is not CV_8U single-channel
+                            //printf("%s> maskTmp components type: %d\n", __FUNCTION__, maskTmp.type());
+                            maskTmp.setTo(0);
+                            for(uint16_t i = 1; i <= nblobs; ++i)
+                                updateConditional<uint16_t, uint8_t>(comps, maskTmp, i, 0, 256.f / nblobs * i - 1);
+                            if(DEV_MODE >= 3) {
+                                showCvWnd("16.ComponentLarvaMask", maskTmp, cvWnds);
+                            }
                         }
                     }
                     // Fill larvaConts from contours
